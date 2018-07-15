@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "name": "ESP32",
+            "includePath": [
+                "${XTENSA_TOOLCHAIN}/xtensa-esp32-elf/include",
+                "${XTENSA_TOOLCHAIN}/lib/gcc/xtensa-esp32-elf/5.2.0/include",
+                "${IDF_PATH}/components/driver/include",
+                "${IDF_PATH}/components/esp32/include",
+                "${IDF_PATH}/components/freertos/include",
+                "${IDF_PATH}/components/heap/include",
+                "${IDF_PATH}/components/log/include",
+                "${IDF_PATH}/components/lwip/include/lwip",
+                "${IDF_PATH}/components/lwip/include/lwip/port",
+                "${IDF_PATH}/components/soc/include",
+                "${IDF_PATH}/components/soc/esp32/include",
+                "${IDF_PATH}/components/tcpip_adapter/include",
+                "${workspaceRoot}/examples/send_msg/build/include",
+                "${workspaceRoot}/include",
+                "${workspaceRoot}/src"
+        ],
+            "defines": [
+                "_DEBUG"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}

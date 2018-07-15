@@ -1,0 +1,35 @@
+menu "The Things Network"
+
+choice TTN_LORA_FREQ
+    prompt "TTN LoRa Frequency"
+    default TTN_LORA_FREQ_NONE
+    help
+        LoRa frequency must match the geographic region the device is operated in.
+        Running it with the incorrect frequency most like violates the law.
+
+config TTN_LORA_FREQ_NONE
+    bool "None"
+
+config TTN_LORA_FREQ_EU_868
+    bool "868 MHz (Europe)"
+
+config TTN_LORA_FREQ_US_915
+    bool "915 Mhz (North America)"
+
+endchoice
+
+choice TTN_RADIO_CHIP
+    prompt "TTN Radio Chip"
+    default TTN_RADIO_SX1276_77_78_79
+    help
+        The chip type used for LoRa radio.
+
+config TTN_RADIO_SX1272_73
+    bool "SX1272/SX1273 (used in HopeRF RFM92 boards)"
+
+config TTN_RADIO_SX1276_77_78_79
+    bool "SX1276/SX1277/SX1278/SX1279 (used in HopeRF RFM96 and ttgo LoRa boards)"
+
+endchoice
+
+endmenu

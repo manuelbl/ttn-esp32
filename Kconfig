@@ -1,7 +1,7 @@
 menu "The Things Network"
 
 choice TTN_LORA_FREQ
-    prompt "TTN LoRa Frequency"
+    prompt "TTN LoRa frequency"
     default TTN_LORA_FREQ_NONE
     help
         LoRa frequency must match the geographic region the device is operated in.
@@ -19,7 +19,7 @@ config TTN_LORA_FREQ_US_915
 endchoice
 
 choice TTN_RADIO_CHIP
-    prompt "TTN Radio Chip"
+    prompt "TTN radio chip"
     default TTN_RADIO_SX1276_77_78_79
     help
         The chip type used for LoRa radio.
@@ -31,5 +31,39 @@ config TTN_RADIO_SX1276_77_78_79
     bool "SX1276/SX1277/SX1278/SX1279 (used in HopeRF RFM96 and ttgo LoRa boards)"
 
 endchoice
+
+choice TTN_TIMER
+    prompt "Timer"
+    default TTN_TIMER_1_GROUP_0
+    help
+        A timer is used to implement the LoRaWAN protocol. This selects the ESP32's timer.
+
+config TTN_TIMER_0_GROUP_0
+    bool "Timer 0 of group 0"
+
+config TTN_TIMER_1_GROUP_0
+    bool "Timer 1 of group 0"
+
+config TTN_TIMER_0_GROUP_1
+    bool "Timer 0 of group 1"
+
+config TTN_TIMER_1_GROUP_1
+    bool "Timer 1 of group 1"
+
+endchoice
+
+config TTN_SPI_FREQ
+    int "SPI frequency (in Hz)"
+    default 10000000
+    help
+        SPI frequency to communicate between ESP32 and SX127x radio chip
+
+config TTN_BG_TASK_PRIO
+    int "Background task priority"
+    default 10
+    help
+        Priority of task running in the background and communicating with
+        the LoRaWAN radio chip. It needs a high priority as the timing is crucial.
+        Higher numbers indicate higher priority.
 
 endmenu

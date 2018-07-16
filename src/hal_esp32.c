@@ -26,7 +26,7 @@ static const char *TAG = "ttn_hal";
 lmic_pinmap lmic_pins;
 
 typedef enum {
-    DIO0,
+    DIO0 = 0,
     DIO1,
     DIO2,
     TIMER,
@@ -46,7 +46,7 @@ static QueueHandle_t dio_queue;
 void IRAM_ATTR dio_irq_handler(void *arg)
 {
     uint64_t now;
-    timer_get_counter_value(TIMER_GROUP_0, TIMER_1, &now);
+    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
     event_t ev = (long)arg;
     BaseType_t higher_prio_task_woken = pdFALSE;
     queue_item_t item = {
@@ -182,7 +182,7 @@ static void hal_spi_init()
     // init device
     spi_device_interface_config_t spi_device_intf_config = {
         .mode = 0,
-        .clock_speed_hz = 10000000,
+        .clock_speed_hz = CONFIG_TTN_SPI_FREQ,
         .command_bits = 0,
         .address_bits = 8,
         .spics_io_num = lmic_pins.nss,
@@ -281,8 +281,6 @@ static void hal_time_init()
 {
     ESP_LOGI(TAG, "Starting initialisation of timer");
 
-    timer_group_t timer_group = TIMER_GROUP_0;
-    timer_idx_t timer_idx = TIMER_1;
     timer_config_t config = {
         .alarm_en = false,
         .counter_en = false,
@@ -291,10 +289,10 @@ static void hal_time_init()
         .auto_reload = false,
         .divider = 1280
     };
-    timer_init(timer_group, timer_idx, &config);
-    timer_set_counter_value(timer_group, timer_idx, 0x0);
-    timer_isr_register(timer_group, timer_idx, timer_irq_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
-    timer_start(timer_group, timer_idx);
+    timer_init(TTN_TIMER_GROUP, TTN_TIMER, &config);
+    timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, 0x0);
+    timer_isr_register(TTN_TIMER_GROUP, TTN_TIMER, timer_irq_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
+    timer_start(TTN_TIMER_GROUP, TTN_TIMER);
 
     ESP_LOGI(TAG, "Finished initalisation of timer");
 }
@@ -302,16 +300,16 @@ static void hal_time_init()
 u4_t hal_ticks()
 {
     uint64_t val;
-    timer_get_counter_value(TIMER_GROUP_0, TIMER_1, &val);
+    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &val);
     return (u4_t)val;
 }
 
 void hal_waitUntil(u4_t time)
 {
     nextTimerEvent = time;
-    timer_set_alarm(TIMER_GROUP_0, TIMER_1, TIMER_ALARM_DIS);
-    timer_set_alarm_value(TIMER_GROUP_0, TIMER_1, nextTimerEvent);
-    timer_set_alarm(TIMER_GROUP_0, TIMER_1, TIMER_ALARM_EN);
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
+    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, nextTimerEvent);
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
     hal_wait(WAIT_FOR_TIMER);
 }
 
@@ -326,7 +324,7 @@ void hal_wakeUp() {
 u1_t hal_checkTimer(u4_t time)
 {
     uint64_t now;
-    timer_get_counter_value(TIMER_GROUP_0, TIMER_1, &now);
+    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
     if (time <= now)
         return 1;
     if (time - now < 5)
@@ -356,9 +354,9 @@ void hal_sleep()
     if (hal_wait(CHECK_IO))
         return;
 
-    timer_set_alarm(TIMER_GROUP_0, TIMER_1, TIMER_ALARM_DIS);
-    timer_set_alarm_value(TIMER_GROUP_0, TIMER_1, nextTimerEvent);
-    timer_set_alarm(TIMER_GROUP_0, TIMER_1, TIMER_ALARM_EN);
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
+    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, nextTimerEvent);
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
     hal_wait(WAIT_FOR_ANY_EVENT);
 }
 
@@ -399,7 +397,7 @@ void hal_init()
 }
 
 void hal_startBgTask() {
-    xTaskCreate(hal_bgTask, "ttn_lora_task", 1024 * 4, (void* )0, 10, NULL);
+    xTaskCreate(hal_bgTask, "ttn_lora_task", 1024 * 4, NULL, CONFIG_TTN_BG_TASK_PRIO, NULL);
 }
 
 void hal_failed(const char *file, u2_t line)

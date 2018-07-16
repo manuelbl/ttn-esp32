@@ -37,15 +37,19 @@ extern "C" {
 #if defined(CONFIG_TTN_TIMER_0_GROUP_0)
 #define TTN_TIMER TIMER_0
 #define TTN_TIMER_GROUP TIMER_GROUP_0
+#define TTN_CLEAR_TIMER_ALARM TIMERG0.int_clr_timers.t0 = 1
 #elif defined(CONFIG_TTN_TIMER_1_GROUP_0)
 #define TTN_TIMER TIMER_1
 #define TTN_TIMER_GROUP TIMER_GROUP_0
+#define TTN_CLEAR_TIMER_ALARM TIMERG0.int_clr_timers.t1 = 1
 #elif defined(CONFIG_TTN_TIMER_0_GROUP_1)
 #define TTN_TIMER TIMER_0
 #define TTN_TIMER_GROUP TIMER_GROUP_1
+#define TTN_CLEAR_TIMER_ALARM TIMERG1.int_clr_timers.t0 = 1
 #elif defined(CONFIG_TTN_TIMER_1_GROUP_1)
 #define TTN_TIMER TIMER_1
 #define TTN_TIMER_GROUP TIMER_GROUP_1
+#define TTN_CLEAR_TIMER_ALARM TIMERG1.int_clr_timers.t1 = 1
 #else
 #error TTN timer must be configured using 'make menuconfig'
 #endif

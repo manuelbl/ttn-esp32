@@ -59,10 +59,9 @@ static u1_t unlinkjob (osjob_t** pnext, osjob_t* job) {
 // clear scheduled job
 void os_clearCallback (osjob_t* job) {
     hal_disableIRQs();
-    #if LMIC_DEBUG_LEVEL > 1
-    u1_t res =
-    #endif
-    unlinkjob(&OS.scheduledjobs, job) || unlinkjob(&OS.runnablejobs, job);
+    u1_t res = unlinkjob(&OS.scheduledjobs, job);
+    if (res)
+        unlinkjob(&OS.runnablejobs, job);
     hal_enableIRQs();
     #if LMIC_DEBUG_LEVEL > 1
         if (res)

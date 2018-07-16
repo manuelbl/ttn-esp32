@@ -60,8 +60,6 @@ void IRAM_ATTR dio_irq_handler(void *arg)
 
 static void hal_io_init()
 {
-    ESP_LOGI(TAG, "Starting IO initialization");
-
     // NSS and DIO0 and DIO1 are required
     ASSERT(lmic_pins.nss != LMIC_UNUSED_PIN);
     ASSERT(lmic_pins.dio0 != LMIC_UNUSED_PIN);
@@ -98,7 +96,7 @@ static void hal_io_init()
     gpio_set_intr_type(lmic_pins.dio1, GPIO_INTR_POSEDGE);
     gpio_isr_handler_add(lmic_pins.dio1, dio_irq_handler, (void *)1);
 
-    ESP_LOGI(TAG, "Finished IO initialization");
+    ESP_LOGI(TAG, "IO initialized");
 }
 
 void hal_pin_rxtx(u1_t val)
@@ -176,9 +174,6 @@ static void submit_spi_trx()
 
 static void hal_spi_init()
 {
-    ESP_LOGI(TAG, "Starting SPI initialization");
-    esp_err_t ret;
-
     // init device
     spi_device_interface_config_t spi_device_intf_config = {
         .mode = 0,
@@ -189,10 +184,10 @@ static void hal_spi_init()
         .queue_size = SPI_QUEUE_SIZE
     };
 
-    ret = spi_bus_add_device(lmic_pins.spi_host, &spi_device_intf_config, &spi_handle);
+    esp_err_t ret = spi_bus_add_device(lmic_pins.spi_host, &spi_device_intf_config, &spi_handle);
     assert(ret == ESP_OK);
 
-    ESP_LOGI(TAG, "Finished SPI initialization");
+    ESP_LOGI(TAG, "SPI initialized");
 }
 
 void hal_spi_write(u1_t cmd, const u1_t *buf, int len)
@@ -222,16 +217,90 @@ void hal_spi_read(u1_t cmd, u1_t *buf, int len)
 // -----------------------------------------------------------------------------
 // TIME
 
-static uint64_t nextTimerEvent = 0xffffffff;
+/*
+ * LIMIC uses a 32 bit time (ostime_t) counting ticks. In this implementation
+ * each tick is 16µs. So the timer will wrap around once every 19 hour.
+ * The timer alarm should trigger when a specific value has been reached.
+ * Due to the wrap around, an alarm time in the future can have a lower value
+ * than the current timer value.
+ * 
+ * ESP32 has 64 bits counters with a pecularity: the alarm does not only
+ * trigger when the exact value has been reached but also when the clock is
+ * higer than the alarm value. Therefore, the wrap around is more difficult to
+ * handle.
+ * 
+ * The approach here is to always use a higher value than the current timer
+ * value. If it would be lower than the timer value, 0x100000000 is added.
+ * The lower 32 bits still represent the desired value. After the timer has
+ * triggered an alarm and is higher than 0x100000000, it's value is reduced
+ * by 0x100000000.
+ */
 
-static void IRAM_ATTR timer_irq_handler(void *arg)
+#define OVERRUN_TRESHOLD 0x10000 // approx 10 seconds
+
+static uint64_t next_timer_event = 0x200000000;
+
+static void IRAM_ATTR hal_timer_irq_handler(void *arg);
+
+static void hal_time_init()
 {
-    TIMERG0.int_clr_timers.t1 = 1;
+    timer_config_t config = {
+        .alarm_en = false,
+        .counter_en = false,
+        .intr_type = TIMER_INTR_LEVEL,
+        .counter_dir = TIMER_COUNT_UP,
+        .auto_reload = false,
+        .divider = 1280  /* 80 MHz APB_CLK * 16µs */
+    };
+    timer_init(TTN_TIMER_GROUP, TTN_TIMER, &config);
+    timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, 0x0);
+    timer_isr_register(TTN_TIMER_GROUP, TTN_TIMER, hal_timer_irq_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
+    timer_start(TTN_TIMER_GROUP, TTN_TIMER);
+
+    ESP_LOGI(TAG, "Timer initialized");
+}
+
+static void hal_prepare_next_alarm(u4_t time)
+{
+    uint64_t now;
+    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
+    u4_t now32 = (u4_t)now;
+
+    if (now != now32)
+    {
+        // decrease timer to 32 bit value
+        now = now32;
+        timer_pause(TTN_TIMER_GROUP, TTN_TIMER);
+        timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, now);
+        timer_start(TTN_TIMER_GROUP, TTN_TIMER);
+    }
+
+    next_timer_event = time;
+    if (now32 > time && now32 - time > OVERRUN_TRESHOLD)
+        next_timer_event += 0x100000000;
+}
+
+static void hal_arm_timer()
+{
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
+    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, next_timer_event);
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
+}
+
+static void hal_disarm_timer()
+{
+    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
+    next_timer_event = 0x200000000; // wait indefinitely (almost)
+}
+
+static void IRAM_ATTR hal_timer_irq_handler(void *arg)
+{
+    TTN_CLEAR_TIMER_ALARM;
     BaseType_t higher_prio_task_woken = pdFALSE;
     queue_item_t item = {
-        .time = (ostime_t)nextTimerEvent,
         .ev = TIMER
     };
+
     xQueueSendFromISR(dio_queue, &item, &higher_prio_task_woken);
     if (higher_prio_task_woken)
         portYIELD_FROM_ISR();
@@ -241,60 +310,42 @@ typedef enum {
     CHECK_IO,
     WAIT_FOR_ANY_EVENT,
     WAIT_FOR_TIMER
-} WaitOption;
+} wait_open_e;
 
-static bool hal_wait(WaitOption waitOption)
+static bool hal_wait(wait_open_e wait_option)
 {
-    TickType_t ticksToWait = waitOption == CHECK_IO ? 0 : portMAX_DELAY;
+    TickType_t ticks_to_wait = wait_option == CHECK_IO ? 0 : portMAX_DELAY;
     while (true)
     {
         queue_item_t item;
-        if (xQueueReceive(dio_queue, &item, ticksToWait) == pdFALSE)
+        if (xQueueReceive(dio_queue, &item, ticks_to_wait) == pdFALSE)
             return false;
 
         if (item.ev == WAKEUP)
         {
-            return true;
-            // nothing to do; just wake up event
-        }
-        else if (item.ev == TIMER) {
-            ostime_t t = (ostime_t)nextTimerEvent;
-            if (item.time == t)
+            if (wait_option != WAIT_FOR_TIMER)
             {
-                nextTimerEvent = 0xffffffff;
-                if (waitOption != CHECK_IO)
-                    return true;
+                hal_disarm_timer();
+                return true;
             }
         }
-        else
+        else if (item.ev == TIMER)
         {
+            hal_disarm_timer();
+            if (wait_option != CHECK_IO)
+                return true;
+        }
+        else // IO interrupt
+        {
+            if (wait_option != WAIT_FOR_TIMER)
+                hal_disarm_timer();
             hal_enterCriticalSection();
             radio_irq_handler(item.ev, item.time);
             hal_leaveCriticalSection();
-            if (waitOption != WAIT_FOR_TIMER)
+            if (wait_option != WAIT_FOR_TIMER)
                 return true;
         }
     }
-}
-
-static void hal_time_init()
-{
-    ESP_LOGI(TAG, "Starting initialisation of timer");
-
-    timer_config_t config = {
-        .alarm_en = false,
-        .counter_en = false,
-        .intr_type = TIMER_INTR_LEVEL,
-        .counter_dir = TIMER_COUNT_UP,
-        .auto_reload = false,
-        .divider = 1280
-    };
-    timer_init(TTN_TIMER_GROUP, TTN_TIMER, &config);
-    timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, 0x0);
-    timer_isr_register(TTN_TIMER_GROUP, TTN_TIMER, timer_irq_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
-    timer_start(TTN_TIMER_GROUP, TTN_TIMER);
-
-    ESP_LOGI(TAG, "Finished initalisation of timer");
 }
 
 u4_t hal_ticks()
@@ -306,14 +357,13 @@ u4_t hal_ticks()
 
 void hal_waitUntil(u4_t time)
 {
-    nextTimerEvent = time;
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
-    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, nextTimerEvent);
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
+    hal_prepare_next_alarm(time);
+    hal_arm_timer();
     hal_wait(WAIT_FOR_TIMER);
 }
 
-void hal_wakeUp() {
+void hal_wakeUp()
+{
     queue_item_t item = {
         .ev = WAKEUP
     };
@@ -325,13 +375,30 @@ u1_t hal_checkTimer(u4_t time)
 {
     uint64_t now;
     timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
-    if (time <= now)
-        return 1;
-    if (time - now < 5)
-        return 1;
+    u4_t now32 = (u4_t)now;
 
-    nextTimerEvent = time;
+    if (time >= now32)
+    {
+        if (time - now32 < 5)
+            return 1; // timer will expire very soon
+    }
+    else
+    {
+        if (now32 - time < OVERRUN_TRESHOLD)
+            return 1; // timer has expired recently
+    }
+
+    hal_prepare_next_alarm(time);
     return 0;
+}
+
+void hal_sleep()
+{
+    if (hal_wait(CHECK_IO))
+        return;
+
+    hal_arm_timer();
+    hal_wait(WAIT_FOR_ANY_EVENT);
 }
 
 // -----------------------------------------------------------------------------
@@ -347,17 +414,6 @@ void hal_enableIRQs()
 {
     // nothing to do as interrupt handlers post message to queue
     // and don't access any shared data structures
-}
-
-void hal_sleep()
-{
-    if (hal_wait(CHECK_IO))
-        return;
-
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
-    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, nextTimerEvent);
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
-    hal_wait(WAIT_FOR_ANY_EVENT);
 }
 
 // -----------------------------------------------------------------------------

@@ -500,7 +500,15 @@ static void txlora () {
     // select LoRa modem (from sleep mode)
     //writeReg(RegOpMode, OPMODE_LORA);
     opmodeLora();
-    ASSERT((readReg(RegOpMode) & OPMODE_LORA) != 0);
+    // can take a moment to change; so try five times
+    u1_t reg;
+    for (int i = 0; i < 5; i++)
+    {
+        reg = readReg(RegOpMode);
+        if ((reg & OPMODE_LORA) != 0)
+            break;
+    }
+    ASSERT((reg & OPMODE_LORA) != 0);
 
     // enter standby mode (required for FIFO loading))
     opmode(OPMODE_STANDBY);

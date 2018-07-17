@@ -9,6 +9,8 @@
  * This the hardware abstraction layer to run LMIC in on ESP32 using ESP-iDF.
  *******************************************************************************/
 
+#include "freertos/FreeRTOS.h"
+#include "esp_event.h"
 #include "TheThingsNetwork.h"
 #include "esp_log.h"
 #include "oslmic.h"
@@ -22,6 +24,8 @@ static TheThingsNetwork* ttnInstance;
 static uint8_t appEui[8];
 static uint8_t appKey[16];
 static uint8_t devEui[8];
+static QueueHandle_t result_queue;
+
 
 static bool hexStringToBin(const char *hex, uint8_t *buf, int len);
 static int hexTupleToByte(const char *hex);
@@ -31,10 +35,12 @@ static void swapByteOrder(uint8_t* buf, int len);
 
 TheThingsNetwork::TheThingsNetwork(uint8_t sf, uint8_t fsb)
 {
+    ASSERT(ttnInstance == NULL);
     ttnInstance = this;
     spreadingFactor = sf;
     frequencySubband = fsb;
     hal_initCriticalSection();
+
 }
 
 TheThingsNetwork::~TheThingsNetwork()
@@ -54,6 +60,8 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     os_init();
     reset();
 
+    result_queue = xQueueCreate(12, sizeof(int));
+    assert(result_queue != NULL);
     hal_startBgTask();
 }
 
@@ -110,7 +118,16 @@ bool TheThingsNetwork::join(int8_t retries, uint32_t retryDelay)
     LMIC_startJoining();
     hal_wakeUp();
     hal_leaveCriticalSection();
-    return true;
+
+    int result = 0;
+    while (true)
+    {
+        xQueueReceive(result_queue, &result, portMAX_DELAY);
+        if (result != EV_JOINING)
+            break;
+    }
+
+    return result == EV_JOINED;
 }
 
 ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length, port_t port, bool confirm, uint8_t sf)
@@ -125,7 +142,10 @@ ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length
     LMIC_setTxData2(port, (xref2u1_t)payload, length, confirm);
     hal_wakeUp();
     hal_leaveCriticalSection();
-    return TTN_SUCCESSFUL_TRANSMISSION;
+
+    int result = 0;
+    xQueueReceive(result_queue, &result, portMAX_DELAY);
+    return result == EV_TXCOMPLETE ? TTN_SUCCESSFUL_TRANSMISSION : TTN_ERROR_SEND_COMMAND_FAILED;
 }
 
 
@@ -167,21 +187,18 @@ void os_getDevKey (u1_t* buf)
 
 void onEvent (ev_t ev) {
     #if CONFIG_LOG_DEFAULT_LEVEL >= 3
-        ESP_LOGI(TAG, "%ld: event %s", os_getTime(), eventNames[ev]);
+        ESP_LOGI(TAG, "event %s", eventNames[ev]);
     #endif
 
-    if (ev == EV_JOINED)
-    {
-        // Disable link check validation (automatically enabled
-        // during join, but not supported by TTN at this time).
-        LMIC_setLinkCheckMode(0);
-    } else if (ev == EV_TXCOMPLETE) {
-            if (LMIC.txrxFlags & TXRX_ACK)
-              printf("Received ack\n");
-            if (LMIC.dataLen) {
-              printf("Received %d bytes of payload\n", LMIC.dataLen);
-            }
+    if (ev == EV_TXCOMPLETE) {
+        if (LMIC.txrxFlags & TXRX_ACK)
+            ESP_LOGI(TAG, "Received ack\n");
+        if (LMIC.dataLen)
+            ESP_LOGI(TAG, "Received %d bytes of payload\n", LMIC.dataLen);
     }
+
+    int result = ev;
+    xQueueSend(result_queue, &result, 100 / portTICK_PERIOD_MS);
 }
 
 

@@ -34,9 +34,7 @@ static uint8_t msgData[] = "Hello, world";
 
 void send_messages(void* pvParameter)
 {
-    vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
-
-    while(1) {
+    while (1) {
         printf("Sending message...\n");
         ttn_response_t res = ttn.sendBytes(msgData, sizeof(msgData) - 1);
         if (res == TTN_SUCCESSFUL_TRANSMISSION)
@@ -68,7 +66,9 @@ extern "C" void app_main(void)
 
     ttn.provision(appEui, appKey, devEui);
 
+    printf("Joining...\n");
     ttn.join();
+    printf("Joined.\n");
 
     xTaskCreate(send_messages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
 }

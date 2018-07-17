@@ -15,7 +15,7 @@
                 "${IDF_PATH}/components/soc/include",
                 "${IDF_PATH}/components/soc/esp32/include",
                 "${IDF_PATH}/components/tcpip_adapter/include",
-                "${workspaceRoot}/examples/send_msg/build/include",
+                "${workspaceRoot}/examples/hello_world/build/include",
                 "${workspaceRoot}/include",
                 "${workspaceRoot}/src"
         ],

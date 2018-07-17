@@ -21,9 +21,9 @@
 static const char *TAG = "ttn";
 
 static TheThingsNetwork* ttnInstance;
+static uint8_t devEui[8];
 static uint8_t appEui[8];
 static uint8_t appKey[16];
-static uint8_t devEui[8];
 static QueueHandle_t result_queue;
 
 
@@ -33,12 +33,10 @@ static int hexDigitToVal(char ch);
 static void swapByteOrder(uint8_t* buf, int len);
 
 
-TheThingsNetwork::TheThingsNetwork(uint8_t sf, uint8_t fsb)
+TheThingsNetwork::TheThingsNetwork()
 {
     ASSERT(ttnInstance == NULL);
     ttnInstance = this;
-    spreadingFactor = sf;
-    frequencySubband = fsb;
     hal_initCriticalSection();
 
 }
@@ -72,13 +70,21 @@ void TheThingsNetwork::reset()
     hal_leaveCriticalSection();
 }
 
-bool TheThingsNetwork::provision(const char *appEui, const char *appKey, const char* devEui)
+bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const char *appKey)
 {
-    return decodeKeys(appEui, appKey, devEui);
+    return decodeKeys(devEui, appEui, appKey);
 }
 
-bool TheThingsNetwork::decodeKeys(const char *appEui, const char *appKey, const char* devEui)
+bool TheThingsNetwork::decodeKeys(const char *devEui, const char *appEui, const char *appKey)
 {
+    if (strlen(devEui) != 16 || !hexStringToBin(devEui, ::devEui, 8))
+    {
+        ESP_LOGW(TAG, "Invalid device EUI: %s", devEui);
+        return false;
+    }
+
+    swapByteOrder(::devEui, 8);
+
     if (strlen(appEui) != 16 || !hexStringToBin(appEui, ::appEui, 8))
     {
         ESP_LOGW(TAG, "Invalid application EUI: %s", appEui);
@@ -93,26 +99,18 @@ bool TheThingsNetwork::decodeKeys(const char *appEui, const char *appKey, const 
         return false;
     }
 
-    if (strlen(devEui) != 16 || !hexStringToBin(devEui, ::devEui, 8))
-    {
-        ESP_LOGW(TAG, "Invalid device EUI: %s", devEui);
-        return false;
-    }
-
-    swapByteOrder(::devEui, 8);
-
     return true;
 }
 
-bool TheThingsNetwork::join(const char *appEui, const char *appKey, const char *devEui, int8_t retries, uint32_t retryDelay)
+bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *appKey)
 {
-    if (!decodeKeys(appEui, appKey, devEui))
+    if (!decodeKeys(devEui, appEui, appKey))
         return false;
     
-    return join(retries, retryDelay);
+    return join();
 }
 
-bool TheThingsNetwork::join(int8_t retries, uint32_t retryDelay)
+bool TheThingsNetwork::join()
 {
     hal_enterCriticalSection();
     LMIC_startJoining();
@@ -130,7 +128,7 @@ bool TheThingsNetwork::join(int8_t retries, uint32_t retryDelay)
     return result == EV_JOINED;
 }
 
-ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length, port_t port, bool confirm, uint8_t sf)
+ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
     hal_enterCriticalSection();
     if (LMIC.opmode & OP_TXRXPEND)

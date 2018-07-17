@@ -18,12 +18,13 @@
 // The LoRaWAN frequency and the radio chip must be configured by running 'make menuconfig'.
 // Go to Components / The Things Network, select the appropriate values and save.
 
-// Copy the below two lines from bottom of your device's overview page in the TTN console
+// Copy the below hex string from the "Device EUI" field
+// on your device's overview page in the TTN console.
+const char *devEui = "????????????????";;
+
+// Copy the below two lines from bottom of the same page
 const char *appEui = "????????????????";
 const char *appKey = "????????????????????????????????";
-
-// Copy the below hex string from the "Device EUI" field on the same pag.
-const char *devEui = "????????????????";;
 
 
 static TheThingsNetwork ttn;
@@ -64,7 +65,7 @@ extern "C" void app_main(void)
 
     ttn.configurePins(HSPI_HOST, 18, TTN_NOT_CONNECTED, 14, 26, 33);
 
-    ttn.provision(appEui, appKey, devEui);
+    ttn.provision(devEui, appEui, appKey);
 
     printf("Joining...\n");
     ttn.join();

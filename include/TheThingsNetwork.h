@@ -51,11 +51,8 @@ class TheThingsNetwork
 public:
     /**
      * @brief Construct a new The Things Network device
-     * 
-     * @param sf        The spreading factor. 7 to 10 for US915 frequency plan. 7 to 12 for other frequency plans. Defaults to 7.
-     * @param fsb       Optional custom frequency subband. 1 to 8. Defaults to 2.
      */
-    TheThingsNetwork(uint8_t sf = TTN_DEFAULT_SF, uint8_t fsb = TTN_DEFAULT_FSB);
+    TheThingsNetwork();
 
     /**
      * @brief Destroy the The Things Network device.
@@ -88,46 +85,42 @@ public:
      * 
      * Call join() without the first 2 arguments to activate.
      * 
+     * @param devEui  Device EUI (16 character string with hexadecimal data)
      * @param appEui  Application EUI of the device (16 character string with hexadecimal data)
      * @param appKey  App Key of the device (32 character string with hexadecimal data)
-     * @param devEui  Device EUI (16 character string with hexadecimal data) or NULL if already set
      * @return true   if the provisioning was successful
      * @return false  if the provisioning failed
      */
-    bool provision(const char *appEui, const char *appKey, const char *devEui = NULL);
+    bool provision(const char *devEui, const char *appEui, const char *appKey);
 
     /**
      * @brief Activate the device via OTAA.
      * 
-     * @param appEui      Application EUI of the device (16 character string with hexadecimal data)
-     * @param appKey      App Key of the device (32 character string with hexadecimal data)
-     * @param devEui  Device EUI (16 character string with hexadecimal data) or NULL if already set
-     * @param retries     Number of times to retry after failed or unconfirmed join. Defaults to -1 which means infinite.
-     * @param retryDelay  Delay in ms between attempts. Defaults to 10 seconds.
+     * @param devEui  Device EUI (16 character string with hexadecimal data)
+     * @param appEui  Application EUI of the device (16 character string with hexadecimal data)
+     * @param appKey  App Key of the device (32 character string with hexadecimal data)
      * @return true 
      * @return false 
      */
-    bool join(const char *appEui, const char *appKey, const char *devEui = NULL, int8_t retries = -1, uint32_t retryDelay = 10000);
+    bool join(const char *devEui, const char *appEui, const char *appKey);
 
     /**
      * @brief Activate the device via OTAA.
      * 
-     * The app EUI and key must already have been provisioned.
+     * The app EUI, app key and dev EUI must already have been provisioned.
      * 
-     * @param retries     Number of times to retry after failed or unconfirmed join. Defaults to -1 which means infinite.
-     * @param retryDelay  Delay in ms between attempts. Defaults to 10 seconds.
      * @return true 
      * @return false 
      */
-    bool join(int8_t retries = -1, uint32_t retryDelay = 10000);
+    bool join();
 
-    ttn_response_t sendBytes(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false, uint8_t sf = 0);
+    ttn_response_t sendBytes(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false);
 
 private:
     uint8_t spreadingFactor = TTN_DEFAULT_SF;
     uint8_t frequencySubband = TTN_DEFAULT_FSB;
 
-    bool decodeKeys(const char *appEui, const char *appKey, const char *devEui);
+    bool decodeKeys(const char *devEui, const char *appEui, const char *appKey);
 };
 
 #endif

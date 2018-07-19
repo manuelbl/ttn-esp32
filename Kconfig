@@ -23,12 +23,14 @@ choice TTN_RADIO_CHIP
     default TTN_RADIO_SX1276_77_78_79
     help
         The chip type used for LoRa radio.
+        Most boards use the SX1276 .. SX1279 chips. This includes ttgo LoRa and HopeRF RFM95 boards.
+        Earlier boards might use the SX1272 / 73 chips, e.g. the HopeRF RFM92.
 
 config TTN_RADIO_SX1272_73
-    bool "SX1272/SX1273 (used in HopeRF RFM92 boards)"
+    bool "Semtech SX1272 / SX1273"
 
 config TTN_RADIO_SX1276_77_78_79
-    bool "SX1276/SX1277/SX1278/SX1279 (used in HopeRF RFM96 and ttgo LoRa boards)"
+    bool "Semtech SX1276 / SX1277 / SX1278 / SX1279"
 
 endchoice
 

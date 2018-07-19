@@ -131,13 +131,13 @@ bool TheThingsNetwork::join()
     return result == EV_JOINED;
 }
 
-ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length, port_t port, bool confirm)
+TTNResponseCode TheThingsNetwork::transmitBytes(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
     hal_enterCriticalSection();
     if (LMIC.opmode & OP_TXRXPEND)
     {
         hal_leaveCriticalSection();
-        return TTN_ERROR_SEND_COMMAND_FAILED;
+        return kTTNErrorTransmissionFailed;
     }
 
     clientAction = eActionSending;
@@ -156,16 +156,19 @@ ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length
             port_t port = 0;
             if ((LMIC.txrxFlags & TXRX_PORT))
                 port = LMIC.frame[LMIC.dataBeg - 1];
-            messageCallback(LMIC.frame + LMIC.dataBeg, LMIC.dataLen, port);
+            const uint8_t* msg = NULL;
+            if (LMIC.dataLen > 0)
+                msg = LMIC.frame + LMIC.dataBeg;
+            messageCallback(msg, LMIC.dataLen, port);
         }
 
-        return hasRecevied ? TTN_SUCCESSFUL_RECEIVE : TTN_SUCCESSFUL_TRANSMISSION;
+        return kTTNSuccessfulTransmission;
     }
 
-    return  TTN_ERROR_SEND_COMMAND_FAILED;
+    return  kTTNErrorTransmissionFailed;
 }
 
-void TheThingsNetwork::onMessage(message_cb_t callback)
+void TheThingsNetwork::onMessage(TTNMessageCallback callback)
 {
     messageCallback = callback;
 }

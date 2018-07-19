@@ -37,13 +37,11 @@ void sendMessages(void* pvParameter)
 {
     while (1) {
         printf("Sending message...\n");
-        ttn_response_t res = ttn.sendBytes(msgData, sizeof(msgData) - 1);
-        if (res == TTN_SUCCESSFUL_TRANSMISSION)
+        TTNResponseCode res = ttn.transmitBytes(msgData, sizeof(msgData) - 1);
+        if (res == kTTNSuccessfulTransmission)
             printf("Message sent.\n");
-        else if (res == TTN_SUCCESSFUL_RECEIVE)
-            printf("Message sent and message received\n");
         else
-            printf("Message transmission failed.\n");
+            printf("Transmission failed.\n");
 
         vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
     }

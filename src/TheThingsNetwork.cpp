@@ -18,13 +18,21 @@
 #include "hal_esp32.h"
 #include "lmic.h"
 
+enum ClientAction
+{
+    eActionUnrelated,
+    eActionJoining,
+    eActionSending
+};
+
 static const char *TAG = "ttn";
 
 static TheThingsNetwork* ttnInstance;
 static uint8_t devEui[8];
 static uint8_t appEui[8];
 static uint8_t appKey[16];
-static QueueHandle_t result_queue;
+static QueueHandle_t resultQueue;
+static ClientAction clientAction = eActionUnrelated;
 
 
 static bool hexStringToBin(const char *hex, uint8_t *buf, int len);
@@ -58,8 +66,8 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     os_init();
     reset();
 
-    result_queue = xQueueCreate(12, sizeof(int));
-    assert(result_queue != NULL);
+    resultQueue = xQueueCreate(12, sizeof(int));
+    assert(resultQueue != NULL);
     hal_startBgTask();
 }
 
@@ -112,33 +120,19 @@ bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *
 
 bool TheThingsNetwork::join()
 {
-    int result = 0;
-    // empty queue
-    while (xQueueReceive(result_queue, &result, 0) == pdTRUE)
-        ;
-
     hal_enterCriticalSection();
+    clientAction = eActionJoining;
     LMIC_startJoining();
     hal_wakeUp();
     hal_leaveCriticalSection();
 
-    while (true)
-    {
-        xQueueReceive(result_queue, &result, portMAX_DELAY);
-        if (result != EV_JOINING)
-            break;
-    }
-
+    int result = 0;
+    xQueueReceive(resultQueue, &result, portMAX_DELAY);
     return result == EV_JOINED;
 }
 
 ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
-    int result = 0;
-    // empty queue
-    while (xQueueReceive(result_queue, &result, 0) == pdTRUE)
-        ;
-
     hal_enterCriticalSection();
     if (LMIC.opmode & OP_TXRXPEND)
     {
@@ -146,11 +140,13 @@ ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length
         return TTN_ERROR_SEND_COMMAND_FAILED;
     }
 
+    clientAction = eActionSending;
     LMIC_setTxData2(port, (xref2u1_t)payload, length, confirm);
     hal_wakeUp();
     hal_leaveCriticalSection();
 
-    xQueueReceive(result_queue, &result, portMAX_DELAY);
+    int result = 0;
+    xQueueReceive(resultQueue, &result, portMAX_DELAY);
 
     if (result == EV_TXCOMPLETE)
     {
@@ -221,8 +217,24 @@ void onEvent (ev_t ev) {
             ESP_LOGI(TAG, "ACK received\n");
     }
 
+    if (clientAction == eActionUnrelated)
+    {
+        return;
+    }    
+    else if (clientAction == eActionJoining)
+    {
+        if (ev != EV_JOINED && EV_REJOIN_FAILED)
+            return;
+    }
+    else
+    {
+        if (ev != EV_TXCOMPLETE && ev != EV_LINK_DEAD)
+            return;
+    }
+
     int result = ev;
-    xQueueSend(result_queue, &result, 100 / portTICK_PERIOD_MS);
+    clientAction = eActionUnrelated;
+    xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
 }
 
 

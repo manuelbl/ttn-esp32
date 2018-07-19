@@ -15,9 +15,6 @@
 #include <stdint.h>
 #include "driver/spi_master.h"
 
-#define TTN_DEFAULT_SF 7
-#define TTN_DEFAULT_FSB 2
-
 /**
  * @brief Constant for indicating that a pin is not connected
  */
@@ -37,6 +34,14 @@ enum ttn_response_t
   TTN_SUCCESSFUL_RECEIVE = 2
 };
 
+/**
+ * @brief Callback for recieved messages
+ * 
+ * @param payload  pointer to the received bytes
+ * @param length   number of received bytes
+ * @param port     port the message was received on
+ */
+typedef void (*message_cb_t)(const uint8_t* payload, size_t length, port_t port);
 
 /**
  * @brief TTN device
@@ -114,11 +119,35 @@ public:
      */
     bool join();
 
+    /**
+     * @brief Send a message
+     * 
+     * @param payload  bytes to be sent
+     * @param length   number of bytes to be sent
+     * @param port     port (default to 1)
+     * @param confirm  flag indicating if a confirmation should be requested. Default to 'false'
+     * @return TTTN_SUCCESSFUL_TRANSMISSION    Successful transmission
+     * @return TTTN_SUCCESSFUL_RECEIVE         Successful transmission and a message has been received
+     * @return TTN_ERROR_SEND_COMMAND_FAILED   Transmission failed
+     * @return TTTN_ERROR_UNEXPECTED_RESPONSE  Unexpected response
+     */
     ttn_response_t sendBytes(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false);
 
+    /**
+     * @brief Set the function to be called when a message is received
+     * 
+     * When a message is received, the specified function is called. The
+     * message, its length and the port is was received on are provided as
+     * parameters. The values are only valid during the duration of the
+     * callback. So they must be immediately processed or copied.
+     * 
+     * @param callback  the callback function
+     */
+    void onMessage(message_cb_t callback);
+
+
 private:
-    uint8_t spreadingFactor = TTN_DEFAULT_SF;
-    uint8_t frequencySubband = TTN_DEFAULT_FSB;
+    message_cb_t messageCallback;
 
     bool decodeKeys(const char *devEui, const char *appEui, const char *appKey);
 };

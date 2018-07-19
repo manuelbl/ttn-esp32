@@ -25,6 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "rom/ets_sys.h"
 #include "lmic.h"
 
 // ---------------------------------------- 
@@ -500,13 +501,14 @@ static void txlora () {
     // select LoRa modem (from sleep mode)
     //writeReg(RegOpMode, OPMODE_LORA);
     opmodeLora();
-    // can take a moment to change; so try five times
+    // can take a moment to change; so try ten times
     u1_t reg;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 10; i++)
     {
         reg = readReg(RegOpMode);
         if ((reg & OPMODE_LORA) != 0)
             break;
+        ets_delay_us(100);
     }
     ASSERT((reg & OPMODE_LORA) != 0);
 

@@ -112,12 +112,16 @@ bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *
 
 bool TheThingsNetwork::join()
 {
+    int result = 0;
+    // empty queue
+    while (xQueueReceive(result_queue, &result, 0) == pdTRUE)
+        ;
+
     hal_enterCriticalSection();
     LMIC_startJoining();
     hal_wakeUp();
     hal_leaveCriticalSection();
 
-    int result = 0;
     while (true)
     {
         xQueueReceive(result_queue, &result, portMAX_DELAY);
@@ -130,6 +134,11 @@ bool TheThingsNetwork::join()
 
 ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
+    int result = 0;
+    // empty queue
+    while (xQueueReceive(result_queue, &result, 0) == pdTRUE)
+        ;
+
     hal_enterCriticalSection();
     if (LMIC.opmode & OP_TXRXPEND)
     {
@@ -141,9 +150,28 @@ ttn_response_t TheThingsNetwork::sendBytes(const uint8_t *payload, size_t length
     hal_wakeUp();
     hal_leaveCriticalSection();
 
-    int result = 0;
     xQueueReceive(result_queue, &result, portMAX_DELAY);
-    return result == EV_TXCOMPLETE ? TTN_SUCCESSFUL_TRANSMISSION : TTN_ERROR_SEND_COMMAND_FAILED;
+
+    if (result == EV_TXCOMPLETE)
+    {
+        bool hasRecevied = (LMIC.txrxFlags & (TXRX_DNW1 | TXRX_DNW2)) != 0;
+        if (hasRecevied && messageCallback != NULL)
+        {
+            port_t port = 0;
+            if ((LMIC.txrxFlags & TXRX_PORT))
+                port = LMIC.frame[LMIC.dataBeg - 1];
+            messageCallback(LMIC.frame + LMIC.dataBeg, LMIC.dataLen, port);
+        }
+
+        return hasRecevied ? TTN_SUCCESSFUL_RECEIVE : TTN_SUCCESSFUL_TRANSMISSION;
+    }
+
+    return  TTN_ERROR_SEND_COMMAND_FAILED;
+}
+
+void TheThingsNetwork::onMessage(message_cb_t callback)
+{
+    messageCallback = callback;
 }
 
 
@@ -190,9 +218,7 @@ void onEvent (ev_t ev) {
 
     if (ev == EV_TXCOMPLETE) {
         if (LMIC.txrxFlags & TXRX_ACK)
-            ESP_LOGI(TAG, "Received ack\n");
-        if (LMIC.dataLen)
-            ESP_LOGI(TAG, "Received %d bytes of payload\n", LMIC.dataLen);
+            ESP_LOGI(TAG, "ACK received\n");
     }
 
     int result = ev;

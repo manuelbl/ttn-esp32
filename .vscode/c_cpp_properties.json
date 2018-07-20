@@ -12,6 +12,7 @@
                 "${IDF_PATH}/components/log/include",
                 "${IDF_PATH}/components/lwip/include/lwip",
                 "${IDF_PATH}/components/lwip/include/lwip/port",
+                "${IDF_PATH}/components/nvs_flash/include",
                 "${IDF_PATH}/components/soc/include",
                 "${IDF_PATH}/components/soc/esp32/include",
                 "${IDF_PATH}/components/tcpip_adapter/include",

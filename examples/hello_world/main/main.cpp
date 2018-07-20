@@ -11,6 +11,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "esp_event.h"
+#include "nvs_flash.h"
 
 #include "TheThingsNetwork.h"
 
@@ -33,15 +34,12 @@ const unsigned TX_INTERVAL = 30;
 static uint8_t msgData[] = "Hello, world";
 
 
-void send_messages(void* pvParameter)
+void sendMessages(void* pvParameter)
 {
     while (1) {
         printf("Sending message...\n");
         TTNResponseCode res = ttn.transmitBytes(msgData, sizeof(msgData) - 1);
-        if (res == kTTNSuccessfulTransmission)
-            printf("Message sent.\n");
-        else
-            printf("Transmission failed.\n");
+        printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
         vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
     }
@@ -49,7 +47,13 @@ void send_messages(void* pvParameter)
 
 extern "C" void app_main(void)
 {
-    gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
+    esp_err_t err;
+    // Initialize the GPIO ISR handler service
+    err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
+    ESP_ERROR_CHECK(err);
+    // Initialize the NVS (non-volatile storage) for saving and restoring the keys
+    err = nvs_flash_init();
+    ESP_ERROR_CHECK(err);
 
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config;
@@ -61,15 +65,21 @@ extern "C" void app_main(void)
     spi_bus_config.max_transfer_sz = 0;
 
     esp_err_t ret = spi_bus_initialize(HSPI_HOST, &spi_bus_config, 1);
-    assert(ret == ESP_OK);
+    ESP_ERROR_CHECK(err);
 
     ttn.configurePins(HSPI_HOST, 18, TTN_NOT_CONNECTED, 14, 26, 33);
 
+    // The below line can be commented after the first run as the data is saved in NVS
     ttn.provision(devEui, appEui, appKey);
 
     printf("Joining...\n");
-    ttn.join();
-    printf("Joined.\n");
-
-    xTaskCreate(send_messages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
+    if (ttn.join())
+    {
+        printf("Joined.\n");
+        xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
+    }
+    else
+    {
+        printf("Join failed. Goodbye\n");
+    }
 }

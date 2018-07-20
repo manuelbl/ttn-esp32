@@ -84,7 +84,7 @@ static void hal_io_init()
     }
 
     dio_queue = xQueueCreate(12, sizeof(queue_item_t));
-    assert(dio_queue != NULL);
+    ASSERT(dio_queue != NULL);
 
     gpio_pad_select_gpio(lmic_pins.dio0);
     gpio_set_direction(lmic_pins.dio0, GPIO_MODE_INPUT);
@@ -151,8 +151,8 @@ static void collect_spi_result()
 
     spi_transaction_t* trx;
     esp_err_t err = spi_device_get_trans_result(spi_handle, &trx, 100 / portTICK_PERIOD_MS);
-    assert(err == ESP_OK);
-    assert(trx == spi_trx_queue + tail);
+    ESP_ERROR_CHECK(err);
+    ASSERT(trx == spi_trx_queue + tail);
     spi_num_outstanding_trx--;
 }
 
@@ -163,7 +163,7 @@ static void submit_spi_trx()
 
     int head = spi_trx_queue_head;
     esp_err_t err = spi_device_queue_trans(spi_handle, spi_trx_queue + head, 100 / portTICK_PERIOD_MS);
-    assert(err == ESP_OK);
+    ESP_ERROR_CHECK(err);
     spi_num_outstanding_trx++;
 
     head++;
@@ -185,7 +185,7 @@ static void hal_spi_init()
     };
 
     esp_err_t ret = spi_bus_add_device(lmic_pins.spi_host, &spi_device_intf_config, &spi_handle);
-    assert(ret == ESP_OK);
+    ESP_ERROR_CHECK(ret);
 
     ESP_LOGI(TAG, "SPI initialized");
 }
@@ -459,5 +459,5 @@ void hal_startBgTask() {
 void hal_failed(const char *file, u2_t line)
 {
     ESP_LOGE(TAG, "%s:%d", file, line);
-    assert(0);
+    ASSERT(0);
 }

@@ -90,7 +90,10 @@ public:
     /**
      * @brief Sets the information needed to activate the device via OTAA, without actually activating.
      * 
-     * The provided EUIs and key are saved in non-volatile memory. Call join() without arguments to activate.
+     * The provided device EUI, app EUI and app key are saved in non-volatile memory. Before
+     * this function is called, 'nvs_flash_init' must have been called once.
+     * 
+     * Call join() without arguments to activate.
      * 
      * @param devEui  Device EUI (16 character string with hexadecimal data)
      * @param appEui  Application EUI of the device (16 character string with hexadecimal data)
@@ -101,9 +104,9 @@ public:
     bool provision(const char *devEui, const char *appEui, const char *appKey);
 
     /**
-     * @brief Set the EUIs and keys and activate the device via OTAA.
+     * @brief Set the device EUI, app EUI and app key and activate the device via OTAA.
      * 
-     * The EUIs and key are NOT saved in non-volatile memory.
+     * The device EUI, app EUI and app key are NOT saved in non-volatile memory.
      * 
      * The function blocks until the activation has completed or failed.
      * 
@@ -119,6 +122,7 @@ public:
      * @brief Activate the device via OTAA.
      * 
      * The app EUI, app key and dev EUI must already have been provisioned by a call to 'provision()'.
+     * Before this function is called, 'nvs_flash_init' must have been called once.
      * 
      * The function blocks until the activation has completed or failed.
      * 
@@ -160,11 +164,23 @@ public:
      */
     void onMessage(TTNMessageCallback callback);
 
+    /**
+     * @brief Checks if device EUI, app EUI and app key have been stored in non-volatile storage
+     * or have been provided as by a call to 'join(const char*, const char*, const char*)'.
+     * 
+     * @return true   if they are stored, complete and of the correct size
+     * @return false  otherwise
+     */
+    bool isProvisioned();
 
 private:
     TTNMessageCallback messageCallback;
+    bool haveKeys;
 
+    bool joinCore();
     bool decodeKeys(const char *devEui, const char *appEui, const char *appKey);
+    bool saveKeys();
+    bool restoreKeys(bool silent);
 };
 
 #endif

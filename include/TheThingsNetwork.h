@@ -55,12 +55,12 @@ class TheThingsNetwork
 {
 public:
     /**
-     * @brief Construct a new The Things Network device
+     * @brief Construct a new The Things Network device instance.
      */
     TheThingsNetwork();
 
     /**
-     * @brief Destroy the The Things Network device.
+     * @brief Destroy the The Things Network device instance.
      */
     ~TheThingsNetwork();
 
@@ -103,7 +103,20 @@ public:
      */
     bool provision(const char *devEui, const char *appEui, const char *appKey);
 
-    /**
+     /**
+     * @brief Activate the device via OTAA.
+     * 
+     * The app EUI, app key and dev EUI must already have been provisioned by a call to 'provision()'.
+     * Before this function is called, 'nvs_flash_init' must have been called once.
+     * 
+     * The function blocks until the activation has completed or failed.
+     * 
+     * @return true   if the activation was succeful
+     * @return false  if the activation failed
+     */
+    bool join();
+
+   /**
      * @brief Set the device EUI, app EUI and app key and activate the device via OTAA.
      * 
      * The device EUI, app EUI and app key are NOT saved in non-volatile memory.
@@ -117,19 +130,6 @@ public:
      * @return false  if the activation failed
      */
     bool join(const char *devEui, const char *appEui, const char *appKey);
-
-    /**
-     * @brief Activate the device via OTAA.
-     * 
-     * The app EUI, app key and dev EUI must already have been provisioned by a call to 'provision()'.
-     * Before this function is called, 'nvs_flash_init' must have been called once.
-     * 
-     * The function blocks until the activation has completed or failed.
-     * 
-     * @return true   if the activation was succeful
-     * @return false  if the activation failed
-     */
-    bool join();
 
     /**
      * @brief Transmit a message
@@ -146,7 +146,7 @@ public:
      * @return kTTNErrorTransmissionFailed   Transmission failed
      * @return TkTTNErrorUnexpected          Unexpected error
      */
-    TTNResponseCode transmitBytes(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false);
+    TTNResponseCode transmitMessage(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false);
 
     /**
      * @brief Set the function to be called when a message is received
@@ -156,7 +156,7 @@ public:
      * parameters. The values are only valid during the duration of the
      * callback. So they must be immediately processed or copied.
      * 
-     * Messages are received as a result of 'transmitBytes' or 'poll'. The callback is called
+     * Messages are received as a result of 'transmitMessage' or 'poll'. The callback is called
      * in the task that called any of these functions and it occurs before these functions
      * return control to the caller.
      * 

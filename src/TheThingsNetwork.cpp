@@ -162,7 +162,7 @@ bool TheThingsNetwork::joinCore()
     return result == EV_JOINED;
 }
 
-TTNResponseCode TheThingsNetwork::transmitBytes(const uint8_t *payload, size_t length, port_t port, bool confirm)
+TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
     hal_enterCriticalSection();
     if (LMIC.opmode & OP_TXRXPEND)

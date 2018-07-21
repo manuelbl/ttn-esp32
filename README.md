@@ -13,3 +13,11 @@ Follow the detailed [Get Started Guide](https://github.com/manuelbl/ttn-esp32/wi
 ## Supported Boards
 
 All boards with Semtech SX127x chips, RFM9x and compatibles are supported. It includes boards from ttgo, Heltec and HopeRF.
+
+## API Documentation
+
+See the Wiki page: [API Documentation](https://github.com/manuelbl/ttn-esp32/wiki/API-Documentation)
+
+## More information
+
+More information can be found on the [Wiki pages](https://github.com/manuelbl/ttn-esp32/wiki).

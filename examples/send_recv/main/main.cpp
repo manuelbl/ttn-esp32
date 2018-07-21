@@ -27,6 +27,17 @@ const char *devEui = "????????????????";
 const char *appEui = "????????????????";
 const char *appKey = "????????????????????????????????";
 
+// Pins and other resources
+#define TTN_SPI_HOST      HSPI_HOST
+#define TTN_SPI_DMA_CHAN  1
+#define TTN_PIN_SPI_SCLK  5
+#define TTN_PIN_SPI_MOSI  27
+#define TTN_PIN_SPI_MISO  19
+#define TTN_PIN_NSS       18
+#define TTN_PIN_RXTX      TTN_NOT_CONNECTED
+#define TTN_PIN_RST       14
+#define TTN_PIN_DIO0      26
+#define TTN_PIN_DIO1      33
 
 static TheThingsNetwork ttn;
 
@@ -59,23 +70,24 @@ extern "C" void app_main(void)
     // Initialize the GPIO ISR handler service
     err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
     ESP_ERROR_CHECK(err);
+    
     // Initialize the NVS (non-volatile storage) for saving and restoring the keys
     err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
 
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config;
-    spi_bus_config.miso_io_num = 19;
-    spi_bus_config.mosi_io_num = 27;
-    spi_bus_config.sclk_io_num = 5;
+    spi_bus_config.miso_io_num = TTN_PIN_SPI_MISO;
+    spi_bus_config.mosi_io_num = TTN_PIN_SPI_MOSI;
+    spi_bus_config.sclk_io_num = TTN_PIN_SPI_SCLK;
     spi_bus_config.quadwp_io_num = -1;
     spi_bus_config.quadhd_io_num = -1;
     spi_bus_config.max_transfer_sz = 0;
-
-    err = spi_bus_initialize(HSPI_HOST, &spi_bus_config, 1);
+    err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 
-    ttn.configurePins(HSPI_HOST, 18, TTN_NOT_CONNECTED, 14, 26, 33);
+    // Configure the SX127x pins
+    ttn.configurePins(TTN_SPI_HOST, TTN_PIN_NSS, TTN_PIN_RXTX, TTN_PIN_RST, TTN_PIN_DIO0, TTN_PIN_DIO1);
 
     // The below line can be commented after the first run as the data is saved in NVS
     ttn.provision(devEui, appEui, appKey);

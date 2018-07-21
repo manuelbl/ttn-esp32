@@ -1,10 +1,11 @@
 /*******************************************************************************
+ * 
+ * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
+ * 
  * Copyright (c) 2018 Manuel Bleichenbacher
  * 
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Licensed under MIT License
+ * https://opensource.org/licenses/MIT
  *
  * Sample program showing how to send a test message every 30 second.
  *******************************************************************************/

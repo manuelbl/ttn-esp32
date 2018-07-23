@@ -87,6 +87,21 @@ void TheThingsNetwork::startProvisioningTask()
 #endif
 }
 
+void TheThingsNetwork::waitForProvisioning()
+{
+#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+    if (isProvisioned())
+    {
+        ESP_LOGI(TAG, "Device is already provisioned");
+        return;
+    }
+
+    while (!provisioning_have_keys())
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    ESP_LOGI(TAG, "Device successfully provisioned");
+#endif
+}
 
 bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *appKey)
 {

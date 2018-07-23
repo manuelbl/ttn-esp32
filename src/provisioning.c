@@ -245,32 +245,38 @@ bool provisioning_have_keys()
 
 bool provisioning_decode_keys(const char *dev_eui, const char *app_eui, const char *app_key)
 {
-    have_keys = false;
+    uint8_t buf_dev_eui[8];
+    uint8_t buf_app_eui[8];
+    uint8_t buf_app_key[16];
 
-    if (strlen(dev_eui) != 16 || !hex_str_to_bin(dev_eui, global_dev_eui, 8))
+    if (strlen(dev_eui) != 16 || !hex_str_to_bin(dev_eui, buf_dev_eui, 8))
     {
         ESP_LOGW(TAG, "Invalid device EUI: %s", dev_eui);
         return false;
     }
 
-    swap_bytes(global_dev_eui, 8);
+    swap_bytes(buf_dev_eui, 8);
 
-    if (strlen(app_eui) != 16 || !hex_str_to_bin(app_eui, global_app_eui, 8))
+    if (strlen(app_eui) != 16 || !hex_str_to_bin(app_eui, buf_app_eui, 8))
     {
         ESP_LOGW(TAG, "Invalid application EUI: %s", app_eui);
         return false;
     }
 
-    swap_bytes(global_app_eui, 8);
+    swap_bytes(buf_app_eui, 8);
 
-    if (strlen(app_key) != 32 || !hex_str_to_bin(app_key, global_app_key, 16))
+    if (strlen(app_key) != 32 || !hex_str_to_bin(app_key, buf_app_key, 16))
     {
         ESP_LOGW(TAG, "Invalid application key: %s", app_key);
         return false;
     }
 
-    have_keys = true;
-    return true;
+    memcpy(global_dev_eui, buf_dev_eui, sizeof(global_dev_eui));
+    memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
+    memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
+
+    have_keys = provisioning_save_keys();
+    return have_keys;
 }
 
 
@@ -313,7 +319,9 @@ done:
 
 bool provisioning_restore_keys(bool silent)
 {
-    have_keys = false;
+    uint8_t buf_dev_eui[8];
+    uint8_t buf_app_eui[8];
+    uint8_t buf_app_key[16];
     
     nvs_handle handle = 0;
     esp_err_t res = nvs_open(NVS_FLASH_PARTITION, NVS_READONLY, &handle);
@@ -328,15 +336,18 @@ bool provisioning_restore_keys(bool silent)
     if (res != ESP_OK)
         goto done;
 
-    if (!read_nvs_value(handle, NVS_FLASH_KEY_DEV_EUI, global_dev_eui, sizeof(global_dev_eui), silent))
+    if (!read_nvs_value(handle, NVS_FLASH_KEY_DEV_EUI, buf_dev_eui, sizeof(global_dev_eui), silent))
         goto done;
 
-    if (!read_nvs_value(handle, NVS_FLASH_KEY_APP_EUI, global_app_eui, sizeof(global_app_eui), silent))
+    if (!read_nvs_value(handle, NVS_FLASH_KEY_APP_EUI, buf_app_eui, sizeof(global_app_eui), silent))
         goto done;
 
-    if (!read_nvs_value(handle, NVS_FLASH_KEY_APP_KEY, global_app_key, sizeof(global_app_key), silent))
+    if (!read_nvs_value(handle, NVS_FLASH_KEY_APP_KEY, buf_app_key, sizeof(global_app_key), silent))
         goto done;
 
+    memcpy(global_dev_eui, buf_dev_eui, sizeof(global_dev_eui));
+    memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
+    memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
     have_keys = true;
     ESP_LOGI(TAG, "Dev and app EUI and app key have been restored from NVS storage");
 

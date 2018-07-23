@@ -111,6 +111,16 @@ public:
      */
     void startProvisioningTask();
 
+    /**
+     * @brief Wait until the device EUI, app EUI and app key have been provisioned
+     * via the provisioning task.
+     * 
+     * If device is already provisioned (stored data in NVS, call to 'provision()'
+     * or call to 'join(const char*, const char*, const char*)', this function
+     * immediately returns.
+     */
+    void waitForProvisioning();
+
      /**
      * @brief Activate the device via OTAA.
      * 

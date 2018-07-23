@@ -16,6 +16,8 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "provisioning.h"
+#include "lmic.h"
+#include "hal_esp32.h"
 
 #define UART_NUM CONFIG_TTN_PROVISION_UART_NUM
 #define MAX_LINE_LENGTH 128
@@ -212,13 +214,20 @@ void provisioning_process_line()
             line_buf[24] = 0;
             line_buf[41] = 0;
             is_ok = provisioning_decode_keys(line_buf + 8, line_buf + 25, line_buf + 42);
+            if (is_ok)
+            {
+                hal_enterCriticalSection();
+                LMIC_reset();
+                hal_leaveCriticalSection();
+                onEvent(EV_RESET);
+            }
         }
         else
         {
             is_ok = false;
         }
     }
-    else
+    else if (strcmp(line_buf, "AT") != 0)
     {
         is_ok = false;
     }

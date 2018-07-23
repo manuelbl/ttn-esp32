@@ -222,12 +222,12 @@ void onEvent (ev_t ev) {
     }    
     else if (clientAction == eActionJoining)
     {
-        if (ev != EV_JOINED && EV_REJOIN_FAILED)
+        if (ev != EV_JOINED && ev != EV_REJOIN_FAILED && ev != EV_RESET)
             return;
     }
     else
     {
-        if (ev != EV_TXCOMPLETE && ev != EV_LINK_DEAD)
+        if (ev != EV_TXCOMPLETE && ev != EV_LINK_DEAD && ev != EV_RESET)
             return;
     }
 

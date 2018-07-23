@@ -50,6 +50,7 @@ static uint8_t global_dev_eui[8];
 static uint8_t global_app_eui[8];
 static uint8_t global_app_key[16];
 static bool have_keys = false;
+static bool quit_task = false;
 
 
 #if defined(CONFIG_TTN_PROVISION_UART_INIT_YES)
@@ -106,7 +107,7 @@ void provisioning_task(void* pvParameter)
 
     ESP_LOGI(TAG, "Provisioning task started");
 
-    while (true)
+    while (!quit_task)
     {
         if (!xQueueReceive(uart_queue, &event, portMAX_DELAY))
             continue;
@@ -127,6 +128,10 @@ void provisioning_task(void* pvParameter)
                 break;
         }
     }
+
+    free(line_buf);
+    uart_driver_delete(UART_NUM);
+    vTaskDelete(NULL);
 }
 
 void provisioning_add_line_data(int numBytes)
@@ -226,6 +231,10 @@ void provisioning_process_line()
         {
             is_ok = false;
         }
+    }
+    else if (strcmp(line_buf, "AT+PROVQ") == 0)
+    {
+        quit_task = true;
     }
     else if (strcmp(line_buf, "AT") != 0)
     {

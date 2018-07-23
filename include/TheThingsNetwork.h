@@ -7,7 +7,7 @@
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
- * This the hardware abstraction layer to run LMIC in on ESP32 using ESP-iDF.
+ * High-level API for ttn-esp32.
  *******************************************************************************/
 
 #ifndef _THETHINGSNETWORK_H_

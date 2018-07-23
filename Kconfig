@@ -2,13 +2,13 @@ menu "The Things Network"
 
 choice TTN_LORA_FREQ
     prompt "TTN LoRa frequency"
-    default TTN_LORA_FREQ_NONE
+    default TTN_LORA_FREQ_DISABLED
     help
         LoRa frequency must match the geographic region the device is operated in.
-        Running it with the incorrect frequency most like violates the law.
+        Running it with the incorrect frequency most likely violates the law.
 
-config TTN_LORA_FREQ_NONE
-    bool "None"
+config TTN_LORA_FREQ_DISABLED
+    bool "LoRa Disabled"
 
 config TTN_LORA_FREQ_EU_868
     bool "868 MHz (Europe)"

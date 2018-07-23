@@ -24,7 +24,8 @@ extern "C" {
 #elif defined(CONFIG_TTN_LORA_FREQ_US_915)
 #define CFG_us915 1
 #else
-#error TTN LoRa frequency must be configured using 'make menuconfig'
+#define TTN_IS_DISABLED 1
+#define CFG_eu868 1
 #endif
 
 #if defined(CONFIG_TTN_RADIO_SX1272_73)

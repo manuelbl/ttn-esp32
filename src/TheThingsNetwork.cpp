@@ -14,6 +14,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "TheThingsNetwork.h"
+#include "config.h"
 #include "hal.h"
 #include "hal_esp32.h"
 #include "lmic.h"
@@ -37,10 +38,15 @@ static ClientAction clientAction = eActionUnrelated;
 TheThingsNetwork::TheThingsNetwork()
     : messageCallback(NULL)
 {
+#if defined(TTN_IS_DISABLED)
+    ESP_LOGE(TAG, "TTN is disabled. Configure a frequency plan using 'make menuconfig'");
+    ASSERT(0);
+    esp_restart();
+#endif
+
     ASSERT(ttnInstance == NULL);
     ttnInstance = this;
     hal_initCriticalSection();
-
 }
 
 TheThingsNetwork::~TheThingsNetwork()

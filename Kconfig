@@ -88,21 +88,6 @@ config TTN_PROVISION_UART_NONE
     bool "None"
 endchoice
 
-choice TTN_PROVISION_UART_INIT
-    prompt "Initialize UART"
-    default TTN_PROVISION_UART_INIT_NO
-    depends on !TTN_PROVISION_UART_NONE
-    help
-        Select whether to initialize the UART, i.e. set the baud rate, the RX and TX
-        pins. If the UART is shared with other features (e.g. the console), it
-        should not be initialized. 
-
-config TTN_PROVISION_UART_INIT_NO
-    bool "No"
-config TTN_PROVISION_UART_INIT_YES
-    bool "Yes"
-endchoice
-
 choice TTN_PROVISION_UART_NUM
     prompt "UART peripheral for provisioning (0-1)"
     depends on TTN_PROVISION_UART_CUSTOM
@@ -114,6 +99,21 @@ config TTN_PROVISION_UART_CUSTOM_NUM_1
     bool "UART1"
 endchoice
 
+choice TTN_PROVISION_UART_CONFIG
+    prompt "Configure UART settings"
+    default TTN_PROVISION_UART_CONFIG_NO
+    depends on TTN_PROVISION_UART_CUSTOM
+    help
+        Select whether to configure the UART, i.e. set the baud rate, the RX and TX
+        pins. If the UART is shared with other features (e.g. the console), it
+        should not be configured. 
+
+config TTN_PROVISION_UART_CONFIG_NO
+    bool "No"
+config TTN_PROVISION_UART_CONFIG_YES
+    bool "Yes"
+endchoice
+
 config TTN_PROVISION_UART_NUM
     int
     default 0 if TTN_PROVISION_UART_DEFAULT || TTN_PROVISION_UART_NONE
@@ -122,21 +122,21 @@ config TTN_PROVISION_UART_NUM
 
 config TTN_PROVISION_UART_TX_GPIO
     int "Provisioning UART TX on GPIO#"
-    depends on TTN_PROVISION_UART_CUSTOM && TTN_PROVISION_UART_INIT_YES
+    depends on TTN_PROVISION_UART_CONFIG_YES
     range 0 33
-    default 19
+    default 1
 
 config TTN_PROVISION_UART_RX_GPIO
     int "Provisioning UART RX on GPIO#"
-    depends on TTN_PROVISION_UART_CUSTOM && TTN_PROVISION_UART_INIT_YES
+    depends on TTN_PROVISION_UART_CONFIG_YES
     range 0 39
-    default 21
+    default 3
 
 config TTN_PROVISION_UART_BAUDRATE
     int "Provisioning UART baud rate"
-    depends on TTN_PROVISION_UART_CUSTOM && TTN_PROVISION_UART_INIT_YES
-    default 115200
+    depends on TTN_PROVISION_UART_CONFIG_YES
     range 1200 4000000
+    default 115200
 
 
 endmenu

@@ -53,8 +53,8 @@ static bool have_keys = false;
 static bool quit_task = false;
 
 
-#if defined(CONFIG_TTN_PROVISION_UART_INIT_YES)
-static void provisioning_init_uart();
+#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
+static void provisioning_config_uart();
 #endif
 
 
@@ -88,8 +88,8 @@ void os_getDevKey (u1_t* buf)
 
 void provisioning_start_task()
 {
-#if defined(CONFIG_TTN_PROVISION_UART_INIT_YES)
-    provisioning_init_uart();
+#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
+    provisioning_config_uart();
 #endif
 
     esp_err_t err = uart_driver_install(UART_NUM, 2048, 2048, 20, &uart_queue, 0);
@@ -244,11 +244,24 @@ void provisioning_process_line()
     uart_write_bytes(UART_NUM, is_ok ? "OK\r\n" : "ERROR\r\n", is_ok ? 4 : 7);
 }
 
-#if defined(CONFIG_TTN_PROVISION_UART_INIT_YES)
+#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
 
-void provisioning_init_uart()
+void provisioning_config_uart()
 {
+    esp_err_t err;
 
+    uart_config_t uart_config = {
+        .baud_rate = CONFIG_TTN_PROVISION_UART_BAUDRATE,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+    };
+    err = uart_param_config(UART_NUM, &uart_config);
+    ESP_ERROR_CHECK(err);
+
+    err = uart_set_pin(UART_NUM, CONFIG_TTN_PROVISION_UART_TX_GPIO, CONFIG_TTN_PROVISION_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    ESP_ERROR_CHECK(err);
 }
 
 #endif

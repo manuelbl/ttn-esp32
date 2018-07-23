@@ -104,6 +104,13 @@ public:
      */
     bool provision(const char *devEui, const char *appEui, const char *appKey);
 
+    /**
+     * @brief Start task that listens on configured UART for provisioning commands.
+     * 
+     * Run 'make menuconfig' to configure it.
+     */
+    void startProvisioningTask();
+
      /**
      * @brief Activate the device via OTAA.
      * 
@@ -176,12 +183,8 @@ public:
 
 private:
     TTNMessageCallback messageCallback;
-    bool haveKeys;
 
     bool joinCore();
-    bool decodeKeys(const char *devEui, const char *appEui, const char *appKey);
-    bool saveKeys();
-    bool restoreKeys(bool silent);
 };
 
 #endif

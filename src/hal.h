@@ -28,6 +28,9 @@
 #ifndef _hal_hpp_
 #define _hal_hpp_
 
+#include "oslmic.h"
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif

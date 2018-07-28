@@ -7,7 +7,7 @@
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
- * This the hardware abstraction layer to run LMIC in on ESP32 using ESP-iDF.
+ * High-level API for ttn-esp32.
  *******************************************************************************/
 
 #ifndef _THETHINGSNETWORK_H_
@@ -104,6 +104,23 @@ public:
      */
     bool provision(const char *devEui, const char *appEui, const char *appKey);
 
+    /**
+     * @brief Start task that listens on configured UART for provisioning commands.
+     * 
+     * Run 'make menuconfig' to configure it.
+     */
+    void startProvisioningTask();
+
+    /**
+     * @brief Wait until the device EUI, app EUI and app key have been provisioned
+     * via the provisioning task.
+     * 
+     * If device is already provisioned (stored data in NVS, call to 'provision()'
+     * or call to 'join(const char*, const char*, const char*)', this function
+     * immediately returns.
+     */
+    void waitForProvisioning();
+
      /**
      * @brief Activate the device via OTAA.
      * 
@@ -176,12 +193,8 @@ public:
 
 private:
     TTNMessageCallback messageCallback;
-    bool haveKeys;
 
     bool joinCore();
-    bool decodeKeys(const char *devEui, const char *appEui, const char *appKey);
-    bool saveKeys();
-    bool restoreKeys(bool silent);
 };
 
 #endif

@@ -1,4 +1,5 @@
 build/
 sdkconfig
+sdkconfig.old
 dev_keys.txt
 ttn-esp32

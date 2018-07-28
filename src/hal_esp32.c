@@ -182,7 +182,8 @@ static void hal_spi_init()
         .command_bits = 0,
         .address_bits = 8,
         .spics_io_num = lmic_pins.nss,
-        .queue_size = SPI_QUEUE_SIZE
+        .queue_size = SPI_QUEUE_SIZE,
+        .cs_ena_posttrans = 2
     };
 
     esp_err_t ret = spi_bus_add_device(lmic_pins.spi_host, &spi_device_intf_config, &spi_handle);

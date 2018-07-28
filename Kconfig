@@ -2,13 +2,13 @@ menu "The Things Network"
 
 choice TTN_LORA_FREQ
     prompt "TTN LoRa frequency"
-    default TTN_LORA_FREQ_NONE
+    default TTN_LORA_FREQ_DISABLED
     help
         LoRa frequency must match the geographic region the device is operated in.
-        Running it with the incorrect frequency most like violates the law.
+        Running it with the incorrect frequency most likely violates the law.
 
-config TTN_LORA_FREQ_NONE
-    bool "None"
+config TTN_LORA_FREQ_DISABLED
+    bool "LoRa Disabled"
 
 config TTN_LORA_FREQ_EU_868
     bool "868 MHz (Europe)"
@@ -67,5 +67,76 @@ config TTN_BG_TASK_PRIO
         Priority of task running in the background and communicating with
         the LoRaWAN radio chip. It needs a high priority as the timing is crucial.
         Higher numbers indicate higher priority.
+
+
+choice TTN_PROVISION_UART
+    prompt "UART for provisioning"
+    default TTN_PROVISION_UART_DEFAULT
+    help
+        Select whether to use UART for listening for provisioning commands.
+        
+        - Default is to use UART0 on pins GPIO1(TX) and GPIO3(RX).
+        - If "Custom" is selected, UART0 or UART1 can be chosen,
+          and any pins can be selected.
+        - If "None" is selected, the feature is not available.
+
+config TTN_PROVISION_UART_DEFAULT
+    bool "Default: UART0, TX=GPIO1, RX=GPIO3, 115,200 baud"
+config TTN_PROVISION_UART_CUSTOM
+    bool "Custom"
+config TTN_PROVISION_UART_NONE
+    bool "None"
+endchoice
+
+choice TTN_PROVISION_UART_NUM
+    prompt "UART peripheral for provisioning (0-1)"
+    depends on TTN_PROVISION_UART_CUSTOM
+    default TTN_PROVISION_UART_CUSTOM_NUM_0
+
+config TTN_PROVISION_UART_CUSTOM_NUM_0
+    bool "UART0"
+config TTN_PROVISION_UART_CUSTOM_NUM_1
+    bool "UART1"
+endchoice
+
+choice TTN_PROVISION_UART_CONFIG
+    prompt "Configure UART settings"
+    default TTN_PROVISION_UART_CONFIG_NO
+    depends on TTN_PROVISION_UART_CUSTOM
+    help
+        Select whether to configure the UART, i.e. set the baud rate, the RX and TX
+        pins. If the UART is shared with other features (e.g. the console), it
+        should not be configured. 
+
+config TTN_PROVISION_UART_CONFIG_NO
+    bool "No"
+config TTN_PROVISION_UART_CONFIG_YES
+    bool "Yes"
+endchoice
+
+config TTN_PROVISION_UART_NUM
+    int
+    default 0 if TTN_PROVISION_UART_DEFAULT || TTN_PROVISION_UART_NONE
+    default 0 if TTN_PROVISION_UART_CUSTOM_NUM_0
+    default 1 if TTN_PROVISION_UART_CUSTOM_NUM_1
+
+config TTN_PROVISION_UART_TX_GPIO
+    int "Provisioning UART TX on GPIO#"
+    depends on TTN_PROVISION_UART_CONFIG_YES
+    range 0 33
+    default 1
+
+config TTN_PROVISION_UART_RX_GPIO
+    int "Provisioning UART RX on GPIO#"
+    depends on TTN_PROVISION_UART_CONFIG_YES
+    range 0 39
+    default 3
+
+config TTN_PROVISION_UART_BAUDRATE
+    int "Provisioning UART baud rate"
+    depends on TTN_PROVISION_UART_CONFIG_YES
+    range 1200 4000000
+    default 115200
+
 
 endmenu

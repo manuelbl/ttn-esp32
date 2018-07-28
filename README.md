@@ -7,7 +7,7 @@ This ESP32 component provides LoRaWAN communication with [The Things Network](ht
 - OTAA (over-the-air activation)
 - uplink and downlink messages
 - saving the EUIs and key in non-volatile memory
-- AT commands for provisioning EUIs and key (so the same code can be flashed to several devices)
+- [AT commands](https://github.com/manuelbl/ttn-esp32/wiki/AT-Commands) for provisioning EUIs and key (so the same code can be flashed to several devices)
 
 The library is based on the LMIC library from IBM and provides a high-level API specifically targeted at The Things Network.
 

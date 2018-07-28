@@ -40,6 +40,7 @@ static int hex_digit_to_val(char ch);
 static void bin_to_hex_str(const uint8_t* buf, int len, char* hex);
 static char val_to_hex_digit(int val);
 static void swap_bytes(uint8_t* buf, int len);
+static bool is_all_zeroes(const uint8_t* buf, int len);
 
 
 static QueueHandle_t uart_queue = NULL;
@@ -306,8 +307,14 @@ bool provisioning_decode_keys(const char *dev_eui, const char *app_eui, const ch
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
-    have_keys = provisioning_save_keys();
-    return have_keys;
+    have_keys = !is_all_zeroes(global_dev_eui, sizeof(global_dev_eui))
+        && !is_all_zeroes(global_app_eui, sizeof(global_app_eui))
+        && !is_all_zeroes(global_app_key, sizeof(global_app_key));
+
+    if (!provisioning_save_keys())
+        return false;
+    
+    return true;
 }
 
 
@@ -379,12 +386,23 @@ bool provisioning_restore_keys(bool silent)
     memcpy(global_dev_eui, buf_dev_eui, sizeof(global_dev_eui));
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
-    have_keys = true;
-    ESP_LOGI(TAG, "Dev and app EUI and app key have been restored from NVS storage");
+
+    have_keys = !is_all_zeroes(global_dev_eui, sizeof(global_dev_eui))
+        && !is_all_zeroes(global_app_eui, sizeof(global_app_eui))
+        && !is_all_zeroes(global_app_key, sizeof(global_app_key));
+
+    if (have_keys)
+    {
+       ESP_LOGI(TAG, "Dev and app EUI and app key have been restored from NVS storage");
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Dev and app EUI and app key are invalid (zeroes only)");
+    }
 
 done:
     nvs_close(handle);
-    return have_keys;
+    return true;
 }
 
 bool read_nvs_value(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent)
@@ -492,4 +510,12 @@ void swap_bytes(uint8_t* buf, int len)
         p1++;
         p2--;
     }
+}
+
+bool is_all_zeroes(const uint8_t* buf, int len)
+{
+    for (int i = 0; i < len; i++)
+        if (buf[i] != 0)
+            return false;
+    return true;
 }

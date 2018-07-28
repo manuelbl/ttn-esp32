@@ -195,7 +195,9 @@ bool TheThingsNetwork::isProvisioned()
     if (provisioning_have_keys())
         return true;
     
-    return provisioning_restore_keys(true);
+    provisioning_restore_keys(true);
+
+    return provisioning_have_keys();
 }
 
 

@@ -177,7 +177,7 @@ static void hal_spi_init()
 {
     // init device
     spi_device_interface_config_t spi_device_intf_config = {
-        .mode = 0,
+        .mode = 1,
         .clock_speed_hz = CONFIG_TTN_SPI_FREQ,
         .command_bits = 0,
         .address_bits = 8,

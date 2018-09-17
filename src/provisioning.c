@@ -14,6 +14,7 @@
 #include "driver/uart.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "nvs_flash.h"
 #include "provisioning.h"
 #include "lmic.h"
@@ -28,6 +29,7 @@ static const char *NVS_FLASH_KEY_DEV_EUI = "devEui";
 static const char *NVS_FLASH_KEY_APP_EUI = "appEui";
 static const char *NVS_FLASH_KEY_APP_KEY = "appKey";
 
+static bool provisioning_decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key);
 static void provisioning_task(void* pvParameter);
 static void provisioning_add_line_data(int numBytes);
 static void provisioning_detect_line_end(int start_at);
@@ -195,6 +197,7 @@ void provisioning_process_line()
     // Expected format:
     // AT+PROV?
     // AT+PROV=hex16-hex16-hex32
+    // AT+MAC?
     if (strcmp(line_buf, "AT+PROV?") == 0)
     {
         uint8_t binbuf[8];
@@ -232,6 +235,22 @@ void provisioning_process_line()
         {
             is_ok = false;
         }
+    }
+    else if (strcmp(line_buf, "AT+MAC?") == 0)
+    {
+        uint8_t mac[6];
+        char hexbuf[12];
+
+        esp_err_t err = esp_efuse_mac_get_default(mac);
+        ESP_ERROR_CHECK(err);
+
+        bin_to_hex_str(mac, 6, hexbuf);
+        for (int i = 0; i < 12; i += 2) {
+            if (i > 0)
+                uart_write_bytes(UART_NUM, ":", 1);
+            uart_write_bytes(UART_NUM, hexbuf + i, 2);
+        }
+        uart_write_bytes(UART_NUM, "\r\n", 2);
     }
     else if (strcmp(line_buf, "AT+PROVQ") == 0)
     {
@@ -277,17 +296,41 @@ bool provisioning_have_keys()
 
 bool provisioning_decode_keys(const char *dev_eui, const char *app_eui, const char *app_key)
 {
+    return provisioning_decode(true, dev_eui, app_eui, app_key);
+}
+
+bool provisioning_from_mac(const char *app_eui, const char *app_key)
+{
+    uint8_t mac[6];
+    esp_err_t err = esp_efuse_mac_get_default(mac);
+    ESP_ERROR_CHECK(err);
+    
+    global_dev_eui[0] = mac[0];
+    global_dev_eui[1] = mac[1];
+    global_dev_eui[2] = mac[2];
+    global_dev_eui[3] = 0xff;
+    global_dev_eui[4] = 0xfe;
+    global_dev_eui[5] = mac[3];
+    global_dev_eui[6] = mac[4];
+    global_dev_eui[7] = mac[5];
+
+    return provisioning_decode(false, NULL, app_eui, app_key);
+}
+
+bool provisioning_decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key)
+{
     uint8_t buf_dev_eui[8];
     uint8_t buf_app_eui[8];
     uint8_t buf_app_key[16];
 
-    if (strlen(dev_eui) != 16 || !hex_str_to_bin(dev_eui, buf_dev_eui, 8))
+    if (incl_dev_eui && (strlen(dev_eui) != 16 || !hex_str_to_bin(dev_eui, buf_dev_eui, 8)))
     {
         ESP_LOGW(TAG, "Invalid device EUI: %s", dev_eui);
         return false;
     }
 
-    swap_bytes(buf_dev_eui, 8);
+    if (incl_dev_eui)
+        swap_bytes(buf_dev_eui, 8);
 
     if (strlen(app_eui) != 16 || !hex_str_to_bin(app_eui, buf_app_eui, 8))
     {
@@ -303,7 +346,8 @@ bool provisioning_decode_keys(const char *dev_eui, const char *app_eui, const ch
         return false;
     }
 
-    memcpy(global_dev_eui, buf_dev_eui, sizeof(global_dev_eui));
+    if (incl_dev_eui)
+        memcpy(global_dev_eui, buf_dev_eui, sizeof(global_dev_eui));
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 

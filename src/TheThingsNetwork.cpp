@@ -86,6 +86,14 @@ bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const c
     return provisioning_save_keys();
 }
 
+bool TheThingsNetwork::provisionWithMAC(const char *appEui, const char *appKey)
+{
+    if (!provisioning_from_mac(appEui, appKey))
+        return false;
+    
+    return provisioning_save_keys();
+}
+
 void TheThingsNetwork::startProvisioningTask()
 {
 #if !defined(CONFIG_TTN_PROVISION_UART_NONE)

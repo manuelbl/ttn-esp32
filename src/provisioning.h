@@ -24,6 +24,7 @@ extern "C" {
 void provisioning_start_task();
 bool provisioning_have_keys();
 bool provisioning_decode_keys(const char *dev_eui, const char *app_eui, const char *app_key);
+bool provisioning_from_mac(const char *app_eui, const char *app_key);
 bool provisioning_save_keys();
 bool provisioning_restore_keys(bool silent);
 

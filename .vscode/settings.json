@@ -4,6 +4,8 @@
         "config.h": "c",
         "sdkconfig.h": "c",
         "oslmic.h": "c",
-        "hal_esp32.h": "c"
+        "hal_esp32.h": "c",
+        "esp_log.h": "c",
+        "nvs_flash.h": "c"
     }
 }

@@ -231,6 +231,18 @@ void provisioning_process_line()
                 onEvent(EV_RESET);
             }
         }
+        else if(strlen(line_buf) == 57 && line_buf[24] == '-')
+        {
+            line_buf[24] = 0;
+            is_ok = provisioning_from_mac(line_buf + 8, line_buf + 25);
+            if (is_ok)
+            {
+                hal_enterCriticalSection();
+                LMIC_reset();
+                hal_leaveCriticalSection();
+                onEvent(EV_RESET);
+            }
+        }
         else
         {
             is_ok = false;
@@ -249,6 +261,24 @@ void provisioning_process_line()
             if (i > 0)
                 uart_write_bytes(UART_NUM, ":", 1);
             uart_write_bytes(UART_NUM, hexbuf + i, 2);
+        }
+        uart_write_bytes(UART_NUM, "\r\n", 2);
+    }
+    else if (strcmp(line_buf, "AT+HWEUI?") == 0)
+    {
+        uint8_t mac[6];
+        char hexbuf[12];
+
+        esp_err_t err = esp_efuse_mac_get_default(mac);
+        ESP_ERROR_CHECK(err);
+
+        bin_to_hex_str(mac, 6, hexbuf);
+        for (int i = 0; i < 12; i += 2) {
+            uart_write_bytes(UART_NUM, hexbuf + i, 2);
+            if (i == 4) {
+              uart_write_bytes(UART_NUM, "FF", 2);
+              uart_write_bytes(UART_NUM, "FE", 2);
+            }
         }
         uart_write_bytes(UART_NUM, "\r\n", 2);
     }
@@ -305,14 +335,14 @@ bool provisioning_from_mac(const char *app_eui, const char *app_key)
     esp_err_t err = esp_efuse_mac_get_default(mac);
     ESP_ERROR_CHECK(err);
     
-    global_dev_eui[0] = mac[0];
-    global_dev_eui[1] = mac[1];
-    global_dev_eui[2] = mac[2];
-    global_dev_eui[3] = 0xff;
-    global_dev_eui[4] = 0xfe;
-    global_dev_eui[5] = mac[3];
-    global_dev_eui[6] = mac[4];
-    global_dev_eui[7] = mac[5];
+    global_dev_eui[7] = mac[0];
+    global_dev_eui[6] = mac[1];
+    global_dev_eui[5] = mac[2];
+    global_dev_eui[4] = 0xff;
+    global_dev_eui[3] = 0xfe;
+    global_dev_eui[2] = mac[3];
+    global_dev_eui[1] = mac[4];
+    global_dev_eui[0] = mac[5];
 
     return provisioning_decode(false, NULL, app_eui, app_key);
 }

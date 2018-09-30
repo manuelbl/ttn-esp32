@@ -194,10 +194,15 @@ top:
 void provisioning_process_line()
 {
     bool is_ok = true;
+    bool reset_needed = false;
+
     // Expected format:
     // AT+PROV?
     // AT+PROV=hex16-hex16-hex32
+    // AT+PROVM=hex16-hex32
     // AT+MAC?
+    // AT+HWEUI?
+
     if (strcmp(line_buf, "AT+PROV?") == 0)
     {
         uint8_t binbuf[8];
@@ -218,34 +223,23 @@ void provisioning_process_line()
     }
     else if (strncmp(line_buf, "AT+PROV=", 8) == 0)
     {
-        if (strlen(line_buf) == 74 && line_buf[24] == '-' && line_buf[41] == '-')
+        is_ok  = strlen(line_buf) == 74 && line_buf[24] == '-' && line_buf[41] == '-';
+        if (is_ok)
         {
             line_buf[24] = 0;
             line_buf[41] = 0;
             is_ok = provisioning_decode_keys(line_buf + 8, line_buf + 25, line_buf + 42);
-            if (is_ok)
-            {
-                hal_enterCriticalSection();
-                LMIC_reset();
-                hal_leaveCriticalSection();
-                onEvent(EV_RESET);
-            }
+            reset_needed = is_ok;
         }
-        else if(strlen(line_buf) == 57 && line_buf[24] == '-')
+    }
+    else if (strncmp(line_buf, "AT+PROVM=", 8) == 0)
+    {
+        is_ok = strlen(line_buf) == 58 && line_buf[25] == '-';
+        if (is_ok)
         {
-            line_buf[24] = 0;
-            is_ok = provisioning_from_mac(line_buf + 8, line_buf + 25);
-            if (is_ok)
-            {
-                hal_enterCriticalSection();
-                LMIC_reset();
-                hal_leaveCriticalSection();
-                onEvent(EV_RESET);
-            }
-        }
-        else
-        {
-            is_ok = false;
+            line_buf[25] = 0;
+            is_ok = provisioning_from_mac(line_buf + 9, line_buf + 26);
+            reset_needed = is_ok;
         }
     }
     else if (strcmp(line_buf, "AT+MAC?") == 0)
@@ -275,10 +269,8 @@ void provisioning_process_line()
         bin_to_hex_str(mac, 6, hexbuf);
         for (int i = 0; i < 12; i += 2) {
             uart_write_bytes(UART_NUM, hexbuf + i, 2);
-            if (i == 4) {
-              uart_write_bytes(UART_NUM, "FF", 2);
-              uart_write_bytes(UART_NUM, "FE", 2);
-            }
+            if (i == 4)
+              uart_write_bytes(UART_NUM, "FFFE", 4);
         }
         uart_write_bytes(UART_NUM, "\r\n", 2);
     }
@@ -289,6 +281,14 @@ void provisioning_process_line()
     else if (strcmp(line_buf, "AT") != 0)
     {
         is_ok = false;
+    }
+
+    if (reset_needed)
+    {
+        hal_enterCriticalSection();
+        LMIC_reset();
+        hal_leaveCriticalSection();
+        onEvent(EV_RESET);
     }
 
     uart_write_bytes(UART_NUM, is_ok ? "OK\r\n" : "ERROR\r\n", is_ok ? 4 : 7);

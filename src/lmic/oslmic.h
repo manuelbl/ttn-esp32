@@ -35,10 +35,9 @@
 
 #include "config.h"
 #include <stdint.h>
-#include <stdio.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"{
 #endif
 
 //================================================================================
@@ -49,8 +48,8 @@ typedef uint8_t            u1_t;
 typedef int8_t             s1_t;
 typedef uint16_t           u2_t;
 typedef int16_t            s2_t;
-typedef unsigned long      u4_t;
-typedef long               s4_t;
+typedef uint32_t           u4_t;
+typedef int32_t            s4_t;
 typedef unsigned int       uint;
 typedef const char* str_t;
 
@@ -74,6 +73,8 @@ typedef   struct rxsched_t rxsched_t;
 typedef   struct bcninfo_t bcninfo_t;
 typedef        const u1_t* xref2cu1_t;
 typedef              u1_t* xref2u1_t;
+typedef              s4_t  ostime_t;
+
 #define TYPEDEF_xref2rps_t     typedef         rps_t* xref2rps_t
 #define TYPEDEF_xref2rxsched_t typedef     rxsched_t* xref2rxsched_t
 #define TYPEDEF_xref2chnldef_t typedef     chnldef_t* xref2chnldef_t
@@ -84,9 +85,6 @@ typedef              u1_t* xref2u1_t;
 
 #define ON_LMIC_EVENT(ev)  onEvent(ev)
 #define DECL_ON_LMIC_EVENT void onEvent(ev_t e)
-
-typedef s4_t  ostime_t;
-
 
 extern u4_t AESAUX[];
 extern u4_t AESKEY[];
@@ -100,11 +98,24 @@ u1_t radio_rand1 (void);
 #define DEFINE_LMIC  struct lmic_t LMIC
 #define DECLARE_LMIC extern struct lmic_t LMIC
 
-void radio_init (void);
-void radio_irq_handler (u1_t dio, ostime_t t);
+typedef struct oslmic_radio_rssi_s oslmic_radio_rssi_t;
+
+struct oslmic_radio_rssi_s {
+        s2_t    min_rssi;
+        s2_t    max_rssi;
+        s2_t    mean_rssi;
+        u2_t    n_rssi;
+};
+
+int radio_init (void);
+// ttn-esp32 extension: time parameter for radio_irq_handler
+void radio_irq_handler (u1_t dio, ostime_t now);
 void os_init (void);
+int os_init_ex (const void *pPinMap);
 void os_runloop (void);
-void os_runloop_once();
+void os_runloop_once (void);
+u1_t radio_rssi (void);
+void radio_monitor_rssi(ostime_t n, oslmic_radio_rssi_t *pRssi);
 
 //================================================================================
 
@@ -209,19 +220,82 @@ void os_wlsbf2 (xref2u1_t buf, u2_t value);
 #define os_getRndU2() ((u2_t)((os_getRndU1()<<8)|os_getRndU1()))
 #endif
 #ifndef os_crc16
-u2_t os_crc16 (xref2u1_t d, uint len);
+u2_t os_crc16 (xref2cu1_t d, uint len);
 #endif
 
 #endif // !HAS_os_calls
 
-#define lmic_printf printf
+// ======================================================================
+// Table support
+// These macros for defining a table of constants and retrieving values
+// from it makes it easier for other platforms (like AVR) to optimize
+// table accesses.
+// Use CONST_TABLE() whenever declaring or defining a table, and
+// TABLE_GET_xx whenever accessing its values. The actual name of the
+// declared variable will be modified to prevent accidental direct
+// access. The accessor macros forward to an inline function to allow
+// proper type checking of the array element type.
+
+// Helper to add a prefix to the table name
+#define RESOLVE_TABLE(table) constant_table_ ## table
+
+// get number of entries in table
+#define LENOF_TABLE(table) (sizeof(RESOLVE_TABLE(table)) / sizeof(RESOLVE_TABLE(table)[0]))
+
+// Accessors for table elements
+#define TABLE_GET_U1(table, index) table_get_u1(RESOLVE_TABLE(table), index)
+#define TABLE_GET_S1(table, index) table_get_s1(RESOLVE_TABLE(table), index)
+#define TABLE_GET_U2(table, index) table_get_u2(RESOLVE_TABLE(table), index)
+#define TABLE_GET_S2(table, index) table_get_s2(RESOLVE_TABLE(table), index)
+#define TABLE_GET_U4(table, index) table_get_u4(RESOLVE_TABLE(table), index)
+#define TABLE_GET_S4(table, index) table_get_s4(RESOLVE_TABLE(table), index)
+#define TABLE_GET_OSTIME(table, index) table_get_ostime(RESOLVE_TABLE(table), index)
+#define TABLE_GET_U1_TWODIM(table, index1, index2) table_get_u1(RESOLVE_TABLE(table)[index1], index2)
+
+#if defined(__AVR__)
+    #include <avr/pgmspace.h>
+    // Macro to define the getter functions. This loads data from
+    // progmem using pgm_read_xx, or accesses memory directly when the
+    // index is a constant so gcc can optimize it away;
+    #define TABLE_GETTER(postfix, type, pgm_type) \
+        inline type table_get ## postfix(const type *table, size_t index) { \
+            if (__builtin_constant_p(table[index])) \
+                return table[index]; \
+            return pgm_read_ ## pgm_type(&table[index]); \
+        }
+
+    TABLE_GETTER(_u1, u1_t, byte);
+    TABLE_GETTER(_s1, s1_t, byte);
+    TABLE_GETTER(_u2, u2_t, word);
+    TABLE_GETTER(_s2, s2_t, word);
+    TABLE_GETTER(_u4, u4_t, dword);
+    TABLE_GETTER(_s4, s4_t, dword);
+
+    // This assumes ostime_t is 4 bytes, so error out if it is not
+    typedef int check_sizeof_ostime_t[(sizeof(ostime_t) == 4) ? 0 : -1];
+    TABLE_GETTER(_ostime, ostime_t, dword);
+
+    // For AVR, store constants in PROGMEM, saving on RAM usage
+    #define CONST_TABLE(type, name) const type PROGMEM RESOLVE_TABLE(name)
+#else
+    inline u1_t table_get_u1(const u1_t *table, size_t index) { return table[index]; }
+    inline s1_t table_get_s1(const s1_t *table, size_t index) { return table[index]; }
+    inline u2_t table_get_u2(const u2_t *table, size_t index) { return table[index]; }
+    inline s2_t table_get_s2(const s2_t *table, size_t index) { return table[index]; }
+    inline u4_t table_get_u4(const u4_t *table, size_t index) { return table[index]; }
+    inline s4_t table_get_s4(const s4_t *table, size_t index) { return table[index]; }
+    inline ostime_t table_get_ostime(const ostime_t *table, size_t index) { return table[index]; }
+
+    // Declare a table
+    #define CONST_TABLE(type, name) const type RESOLVE_TABLE(name)
+#endif
 
 // ======================================================================
-// AES support 
+// AES support
 // !!Keep in sync with lorabase.hpp!!
 
 #ifndef AES_ENC  // if AES_ENC is defined as macro all other values must be too
-#define AES_ENC       0x00 
+#define AES_ENC       0x00
 #define AES_DEC       0x01
 #define AES_MIC       0x02
 #define AES_CTR       0x04

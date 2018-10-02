@@ -14,8 +14,6 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "TheThingsNetwork.h"
-#include "lmic/config.h"
-#include "lmic/hal.h"
 #include "hal/hal_esp32.h"
 #include "lmic/lmic.h"
 #include "provisioning.h"
@@ -218,7 +216,8 @@ static const char *eventNames[] = {
     "EV_BEACON_MISSED", "EV_BEACON_TRACKED", "EV_JOINING",
     "EV_JOINED", "EV_RFU1", "EV_JOIN_FAILED", "EV_REJOIN_FAILED",
     "EV_TXCOMPLETE", "EV_LOST_TSYNC", "EV_RESET",
-    "EV_RXCOMPLETE", "EV_LINK_DEAD", "EV_LINK_ALIVE"
+    "EV_RXCOMPLETE", "EV_LINK_DEAD", "EV_LINK_ALIVE", "EV_SCAN_FOUND",
+    "EV_TXSTART"
 };
 #endif
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016 IBM Corporation.
+ * Copyright (c) 2016, 2018 MCCI Corporation.
  * All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -28,17 +29,19 @@
 #ifndef _hal_hpp_
 #define _hal_hpp_
 
-#include "oslmic.h"
-
-
 #ifdef __cplusplus
-extern "C" {
+extern "C"{
 #endif
 
 /*
  * initialize hardware (IO, SPI, TIMER, IRQ).
  */
 void hal_init (void);
+
+/*
+ * initialize hardware, passing in platform-specific context
+ */
+void hal_init_ex (const void *pContext);
 
 /*
  * drive radio NSS pin (0=low, 1=high).
@@ -55,6 +58,8 @@ void hal_pin_rxtx (u1_t val);
  */
 void hal_pin_rst (u1_t val);
 
+// BEGIN ttn-esp32 change
+// use higher level SPI functions
 /*
  * perform SPI write transaction with radio
  *   - write the command byte 'cmd'
@@ -70,8 +75,16 @@ void hal_spi_write(u1_t cmd, const u1_t* buf, int len);
 void hal_spi_read(u1_t cmd, u1_t* buf, int len);
 
 /*
+ * perform 8-bit SPI transaction with radio.
+ *   - write given byte 'outval'
+ *   - read byte and return value
+ */
+//u1_t hal_spi (u1_t outval);
+// END ttn-esp32 change
+
+/*
  * disable all CPU interrupts.
- *   - might be invoked nested 
+ *   - might be invoked nested
  *   - will be followed by matching call to hal_enableIRQs()
  */
 void hal_disableIRQs (void);
@@ -110,10 +123,13 @@ u1_t hal_checkTimer (u4_t targettime);
  */
 void hal_failed (const char *file, u2_t line);
 
+/*
+ * get the calibration value for radio_rssi
+ */
+s1_t hal_getRssiCal (void);
 
 #ifdef __cplusplus
-}
+} // extern "C"
 #endif
-
 
 #endif // _hal_hpp_

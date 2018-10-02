@@ -27,6 +27,7 @@ typedef struct lmic_pinmap {
     uint8_t rst;
     uint8_t dio0;
     uint8_t dio1;
+    int8_t rssi_cal; // cal in dB -- added to RSSI measured prior to decision. Must include noise guardband!
 } lmic_pinmap;
 
 extern lmic_pinmap lmic_pins;

@@ -125,6 +125,11 @@ void hal_pin_rst(u1_t val)
     }
 }
 
+s1_t hal_getRssiCal (void) {
+    return lmic_pins.rssi_cal;
+}
+
+
 // -----------------------------------------------------------------------------
 // SPI
 
@@ -444,7 +449,7 @@ static void hal_bgTask(void* pvParameter) {
     os_runloop();
 }
 
-void hal_init()
+void hal_init_ex(const void *pContext)
 {
     // configure radio I/O and interrupt handler
     hal_io_init();

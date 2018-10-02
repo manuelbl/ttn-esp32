@@ -13,7 +13,7 @@
 #ifndef _provision_task_h_
 #define _provision_task_h_
 
-#include "oslmic.h"
+#include "lmic/oslmic.h"
 
 
 #ifdef __cplusplus

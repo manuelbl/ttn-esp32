@@ -14,10 +14,10 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "TheThingsNetwork.h"
-#include "config.h"
-#include "hal.h"
-#include "hal_esp32.h"
-#include "lmic.h"
+#include "lmic/config.h"
+#include "lmic/hal.h"
+#include "hal/hal_esp32.h"
+#include "lmic/lmic.h"
 #include "provisioning.h"
 
 

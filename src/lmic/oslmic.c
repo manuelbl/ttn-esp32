@@ -26,7 +26,7 @@
  */
 
 #include "lmic.h"
-#include "hal_esp32.h"
+#include "../hal/hal_esp32.h"
 #include <stdbool.h>
 
 // RUNTIME STATE

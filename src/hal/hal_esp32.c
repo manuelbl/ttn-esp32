@@ -10,8 +10,8 @@
  * Hardware abstraction layer to run LMIC on a ESP32 using ESP-iDF.
  *******************************************************************************/
 
-#include "lmic.h"
-#include "hal_esp32.h"
+#include "../lmic/lmic.h"
+#include "../hal/hal_esp32.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

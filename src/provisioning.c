@@ -17,8 +17,8 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "provisioning.h"
-#include "lmic.h"
-#include "hal_esp32.h"
+#include "lmic/lmic.h"
+#include "hal/hal_esp32.h"
 
 #define UART_NUM CONFIG_TTN_PROVISION_UART_NUM
 #define MAX_LINE_LENGTH 128

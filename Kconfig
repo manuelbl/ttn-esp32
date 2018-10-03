@@ -1,7 +1,7 @@
 menu "The Things Network"
 
 choice TTN_LORA_FREQ
-    prompt "TTN LoRa frequency"
+    prompt "TTN LoRa frequency / region"
     default TTN_LORA_FREQ_DISABLED
     help
         LoRa frequency must match the geographic region the device is operated in.
@@ -11,10 +11,19 @@ config TTN_LORA_FREQ_DISABLED
     bool "LoRa Disabled"
 
 config TTN_LORA_FREQ_EU_868
-    bool "868 MHz (Europe)"
+    bool "Europe (868 MHz)"
 
 config TTN_LORA_FREQ_US_915
-    bool "915 Mhz (North America)"
+    bool "North America (915 Mhz)"
+
+config TTN_LORA_FREQ_AU_921
+    bool "Australia (921 Mhz)"
+
+config TTN_LORA_FREQ_AS_923
+    bool "Asia (923 Mhz)"
+
+config TTN_LORA_FREQ_IN_866
+    bool "India (866 Mhz)"
 
 endchoice
 

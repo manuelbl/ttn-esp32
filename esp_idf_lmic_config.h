@@ -59,3 +59,7 @@
 #if LMIC_DEBUG_LEVEL > 0 || LMIC_X_DEBUG_LEVEL > 0
 #include <stdio.h>
 #endif
+
+#define DISABLE_PING
+
+#define DISABLE_BEACONS

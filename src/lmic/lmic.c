@@ -1715,7 +1715,8 @@ static void engineUpdate (void) {
 #endif // !DISABLE_JOIN
 
     ostime_t now    = os_getTime();
-    ostime_t rxtime = 0;
+    // ttn-esp32 change: suppress unused variable warning
+    ostime_t __attribute__((unused)) rxtime = 0;
     ostime_t txbeg  = 0;
 
 #if !defined(DISABLE_BEACONS)

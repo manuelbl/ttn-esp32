@@ -8,8 +8,9 @@ This ESP32 component provides LoRaWAN communication with [The Things Network](ht
 - uplink and downlink messages
 - saving the EUIs and key in non-volatile memory
 - [AT commands](https://github.com/manuelbl/ttn-esp32/wiki/AT-Commands) for provisioning EUIs and key (so the same code can be flashed to several devices)
+- support for regions Eurpe, North America, Australia, Asia and India
 
-The library is based on the LMIC library from IBM and provides a high-level API specifically targeted at The Things Network.
+The library is based on the LMIC library from IBM (specifically the version maintained by MCCI – see their [GitHub repository](https://github.com/mcci-catena/arduino-lmic)) and provides a high-level API specifically targeted at The Things Network.
 
 ## Get Started
 

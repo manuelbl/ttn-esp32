@@ -54,7 +54,8 @@
 #define US_PER_OSTICK 16
 #define OSTICKS_PER_SEC (1000000 / US_PER_OSTICK)
 
-#define USE_ORIGINAL_AES
+//#define USE_ORIGINAL_AES
+#define USE_MBEDTLS_AES
 
 #if LMIC_DEBUG_LEVEL > 0 || LMIC_X_DEBUG_LEVEL > 0
 #include <stdio.h>

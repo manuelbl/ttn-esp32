@@ -16,6 +16,8 @@
 #define CFG_eu868 1
 #elif defined(CONFIG_TTN_LORA_FREQ_US_915)
 #define CFG_us915 1
+#elif defined(CONFIG_TTN_LORA_FREQ_AS_923)
+#define CFG_as923 1
 #else
 #define TTN_IS_DISABLED 1
 #define CFG_eu868 1

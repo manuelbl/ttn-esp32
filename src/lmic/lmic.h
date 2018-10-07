@@ -37,6 +37,7 @@
 #include "lorabase.h"
 
 #if LMIC_DEBUG_LEVEL > 0 || LMIC_X_DEBUG_LEVEL > 0
+#include <stdio.h>
 # if defined(LMIC_DEBUG_INCLUDE)
 #   define LMIC_STRINGIFY_(x) #x
 #   define LMIC_STRINGIFY(x) LMIC_STRINGIFY_(x)

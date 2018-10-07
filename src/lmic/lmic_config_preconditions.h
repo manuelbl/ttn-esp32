@@ -85,6 +85,7 @@ Revision history:
 
 // specific countries. Only the ones that are needed by the code are defined.
 #define LMIC_COUNTRY_CODE_JP    LMIC_COUNTRY_CODE_C('J', 'P')
+#define LMIC_COUNTRY_CODE_KR    LMIC_COUNTRY_CODE_C('K', 'R')
 
 // include the file that the user is really supposed to edit. But for really strange
 // ports, this can be suppressed
@@ -103,7 +104,7 @@ Revision history:
                                 (1 << LMIC_REGION_au921) |      \
                              /* (1 << LMIC_REGION_cn490) | */   \
                                 (1 << LMIC_REGION_as923) |      \
-                             /* (1 << LMIC_REGION_kr921) | */   \
+                                (1 << LMIC_REGION_kr921) |      \
                                 (1 << LMIC_REGION_in866) |      \
                                 0)
 

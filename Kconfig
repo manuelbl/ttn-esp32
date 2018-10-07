@@ -22,6 +22,9 @@ config TTN_LORA_FREQ_AU_921
 config TTN_LORA_FREQ_AS_923
     bool "Asia (923 Mhz)"
 
+config TTN_LORA_FREQ_KR_921
+    bool "Korea (921 Mhz)"
+
 config TTN_LORA_FREQ_IN_866
     bool "India (866 Mhz)"
 

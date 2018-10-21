@@ -347,7 +347,7 @@ static bool hal_wait(wait_open_e wait_option)
             if (wait_option != WAIT_FOR_TIMER)
                 hal_disarm_timer();
             hal_enterCriticalSection();
-            radio_irq_handler(item.ev, item.time);
+            radio_irq_handler_v2(item.ev, item.time);
             hal_leaveCriticalSection();
             if (wait_option != WAIT_FOR_TIMER)
                 return true;

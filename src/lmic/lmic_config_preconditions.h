@@ -55,6 +55,7 @@ Revision history:
 //
 // otherwise the lmic_project_config.h from the ../../project_config directory will be used.
 #ifndef ARDUINO_LMIC_PROJECT_CONFIG_H
+// ttn-esp32: different configuration concept
 # define ARDUINO_LMIC_PROJECT_CONFIG_H ../esp_idf_lmic_config.h
 #endif
 

@@ -61,14 +61,14 @@ void hal_pin_rst (u1_t val);
 // BEGIN ttn-esp32 change
 // use higher level SPI functions
 /*
- * perform SPI write transaction with radio
+ * Perform SPI write transaction with radio chip
  *   - write the command byte 'cmd'
- *   - write 'len' bytes in 'buf'
+ *   - write 'len' bytes out of 'buf'
  */
 void hal_spi_write(u1_t cmd, const u1_t* buf, int len);
 
 /*
- * perform SPI read transaction with radio
+ * Perform SPI read transaction with radio chip
  *   - write the command byte 'cmd'
  *   - read 'len' bytes into 'buf'
  */

@@ -133,50 +133,8 @@ s1_t hal_getRssiCal (void) {
 // -----------------------------------------------------------------------------
 // SPI
 
-#define SPI_QUEUE_SIZE 4
-#define SPI_NUM_TRX_SLOTS (SPI_QUEUE_SIZE + 1)
-
 static spi_device_handle_t spi_handle;
-static spi_transaction_t spi_trx_queue[SPI_NUM_TRX_SLOTS];
-static int spi_trx_queue_head = 0;
-static int spi_num_outstanding_trx = 0;
-
-static spi_transaction_t* get_next_spi_trx_desc()
-{
-    spi_transaction_t* trx = spi_trx_queue + spi_trx_queue_head;
-    memset(trx, 0, sizeof(spi_transaction_t));
-    return trx;
-}
-
-static void collect_spi_result()
-{
-    int head = spi_trx_queue_head;
-    int tail = head - spi_num_outstanding_trx;
-    if (tail < 0)
-        tail += SPI_NUM_TRX_SLOTS;
-
-    spi_transaction_t* trx;
-    esp_err_t err = spi_device_get_trans_result(spi_handle, &trx, 100 / portTICK_PERIOD_MS);
-    ESP_ERROR_CHECK(err);
-    ASSERT(trx == spi_trx_queue + tail);
-    spi_num_outstanding_trx--;
-}
-
-static void submit_spi_trx()
-{
-    if (spi_num_outstanding_trx >= SPI_QUEUE_SIZE)
-        collect_spi_result();
-
-    int head = spi_trx_queue_head;
-    esp_err_t err = spi_device_queue_trans(spi_handle, spi_trx_queue + head, 100 / portTICK_PERIOD_MS);
-    ESP_ERROR_CHECK(err);
-    spi_num_outstanding_trx++;
-
-    head++;
-    if (head >= SPI_NUM_TRX_SLOTS)
-        head = 0;
-    spi_trx_queue_head = head;
-}
+static spi_transaction_t spi_trx;
 
 static void hal_spi_init()
 {
@@ -187,7 +145,7 @@ static void hal_spi_init()
         .command_bits = 0,
         .address_bits = 8,
         .spics_io_num = lmic_pins.nss,
-        .queue_size = SPI_QUEUE_SIZE,
+        .queue_size = 1,
         .cs_ena_posttrans = 2
     };
 
@@ -199,26 +157,25 @@ static void hal_spi_init()
 
 void hal_spi_write(u1_t cmd, const u1_t *buf, int len)
 {
-    spi_transaction_t* trx = get_next_spi_trx_desc();
-    trx->addr = cmd;
-    trx->length = 8 * len;
-    trx->tx_buffer = buf;
-    submit_spi_trx();
+    memset(&spi_trx, 0, sizeof(spi_trx));
+    spi_trx.addr = cmd;
+    spi_trx.length = 8 * len;
+    spi_trx.tx_buffer = buf;
+    esp_err_t err = spi_device_transmit(spi_handle, &spi_trx);
+    ESP_ERROR_CHECK(err);
 }
 
 void hal_spi_read(u1_t cmd, u1_t *buf, int len)
 {
     memset(buf, 0, len);
-    spi_transaction_t* trx = get_next_spi_trx_desc();
-    trx->addr = cmd;
-    trx->length = 8 * len;
-    trx->rxlength = 8 * len;
-    trx->tx_buffer = buf;
-    trx->rx_buffer = buf;
-    submit_spi_trx();
-
-    while (spi_num_outstanding_trx > 0)
-        collect_spi_result();
+    memset(&spi_trx, 0, sizeof(spi_trx));
+    spi_trx.addr = cmd;
+    spi_trx.length = 8 * len;
+    spi_trx.rxlength = 8 * len;
+    spi_trx.tx_buffer = buf;
+    spi_trx.rx_buffer = buf;
+    esp_err_t err = spi_device_transmit(spi_handle, &spi_trx);
+    ESP_ERROR_CHECK(err);
 }
 
 // -----------------------------------------------------------------------------

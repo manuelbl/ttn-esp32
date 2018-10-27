@@ -87,7 +87,7 @@ extern "C" void app_main(void)
     if (ttn.join())
     {
         printf("Joined.\n");
-        xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, NULL);
+        xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, nullptr);
     }
     else
     {

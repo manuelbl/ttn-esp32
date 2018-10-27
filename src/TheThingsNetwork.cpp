@@ -16,7 +16,7 @@
 #include "TheThingsNetwork.h"
 #include "hal/hal_esp32.h"
 #include "lmic/lmic.h"
-#include "provisioning.h"
+#include "TTNProvisioning.h"
 
 
 enum ClientAction
@@ -31,10 +31,11 @@ static const char *TAG = "ttn";
 static TheThingsNetwork* ttnInstance;
 static QueueHandle_t resultQueue;
 static ClientAction clientAction = eActionUnrelated;
+static TTNProvisioning provisioning;
 
 
 TheThingsNetwork::TheThingsNetwork()
-    : messageCallback(NULL)
+    : messageCallback(nullptr)
 {
 #if defined(TTN_IS_DISABLED)
     ESP_LOGE(TAG, "TTN is disabled. Configure a frequency plan using 'make menuconfig'");
@@ -42,7 +43,7 @@ TheThingsNetwork::TheThingsNetwork()
     esp_restart();
 #endif
 
-    ASSERT(ttnInstance == NULL);
+    ASSERT(ttnInstance == nullptr);
     ttnInstance = this;
     hal_initCriticalSection();
 }
@@ -65,7 +66,7 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     reset();
 
     resultQueue = xQueueCreate(12, sizeof(int));
-    ASSERT(resultQueue != NULL);
+    ASSERT(resultQueue != nullptr);
     hal_startBgTask();
 }
 
@@ -78,24 +79,24 @@ void TheThingsNetwork::reset()
 
 bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const char *appKey)
 {
-    if (!provisioning_decode_keys(devEui, appEui, appKey))
+    if (!provisioning.decodeKeys(devEui, appEui, appKey))
         return false;
     
-    return provisioning_save_keys();
+    return provisioning.saveKeys();
 }
 
 bool TheThingsNetwork::provisionWithMAC(const char *appEui, const char *appKey)
 {
-    if (!provisioning_from_mac(appEui, appKey))
+    if (!provisioning.fromMAC(appEui, appKey))
         return false;
     
-    return provisioning_save_keys();
+    return provisioning.saveKeys();
 }
 
 void TheThingsNetwork::startProvisioningTask()
 {
 #if !defined(CONFIG_TTN_PROVISION_UART_NONE)
-    provisioning_start_task();
+    provisioning.startTask();
 #endif
 }
 
@@ -108,7 +109,7 @@ void TheThingsNetwork::waitForProvisioning()
         return;
     }
 
-    while (!provisioning_have_keys())
+    while (!provisioning.haveKeys())
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     ESP_LOGI(TAG, "Device successfully provisioned");
@@ -117,7 +118,7 @@ void TheThingsNetwork::waitForProvisioning()
 
 bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *appKey)
 {
-    if (!provisioning_decode_keys(devEui, appEui, appKey))
+    if (!provisioning.decodeKeys(devEui, appEui, appKey))
         return false;
     
     return joinCore();
@@ -125,9 +126,9 @@ bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *
 
 bool TheThingsNetwork::join()
 {
-    if (!provisioning_have_keys())
+    if (!provisioning.haveKeys())
     {
-        if (!provisioning_restore_keys(false))
+        if (!provisioning.restoreKeys(false))
             return false;
     }
 
@@ -136,7 +137,7 @@ bool TheThingsNetwork::join()
 
 bool TheThingsNetwork::joinCore()
 {
-    if (!provisioning_have_keys())
+    if (!provisioning.haveKeys())
     {
         ESP_LOGW(TAG, "Device EUI, App EUI and/or App key have not been provided");
         return false;
@@ -173,12 +174,12 @@ TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t
     if (result == EV_TXCOMPLETE)
     {
         bool hasRecevied = (LMIC.txrxFlags & (TXRX_DNW1 | TXRX_DNW2)) != 0;
-        if (hasRecevied && messageCallback != NULL)
+        if (hasRecevied && messageCallback != nullptr)
         {
             port_t port = 0;
             if ((LMIC.txrxFlags & TXRX_PORT))
                 port = LMIC.frame[LMIC.dataBeg - 1];
-            const uint8_t* msg = NULL;
+            const uint8_t* msg = nullptr;
             if (LMIC.dataLen > 0)
                 msg = LMIC.frame + LMIC.dataBeg;
             messageCallback(msg, LMIC.dataLen, port);
@@ -198,12 +199,12 @@ void TheThingsNetwork::onMessage(TTNMessageCallback callback)
 
 bool TheThingsNetwork::isProvisioned()
 {
-    if (provisioning_have_keys())
+    if (provisioning.haveKeys())
         return true;
     
-    provisioning_restore_keys(true);
+    provisioning.restoreKeys(true);
 
-    return provisioning_have_keys();
+    return provisioning.haveKeys();
 }
 
 
@@ -211,7 +212,7 @@ bool TheThingsNetwork::isProvisioned()
 
 #if CONFIG_LOG_DEFAULT_LEVEL >= 3
 static const char *eventNames[] = {
-    NULL,
+    nullptr,
     "EV_SCAN_TIMEOUT", "EV_BEACON_FOUND",
     "EV_BEACON_MISSED", "EV_BEACON_TRACKED", "EV_JOINING",
     "EV_JOINED", "EV_RFU1", "EV_JOIN_FAILED", "EV_REJOIN_FAILED",

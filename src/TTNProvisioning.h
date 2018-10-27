@@ -22,23 +22,29 @@ class TTNProvisioning
 public:
     TTNProvisioning();
 
-    void startTask();
     bool haveKeys();
     bool decodeKeys(const char *dev_eui, const char *app_eui, const char *app_key);
     bool fromMAC(const char *app_eui, const char *app_key);
     bool saveKeys();
     bool restoreKeys(bool silent);
 
+#if defined(TTN_HAS_AT_COMMANDS)
+    void startTask();
+#endif
+
 private:
-    void provisioningTask();
     bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key);
-    void addLineData(int numBytes);
-    void detectLineEnd(int start_at);
-    void processLine();
     bool readNvsValue(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent);
     bool writeNvsValue(nvs_handle handle, const char* key, const uint8_t* data, size_t len);
 
-#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
+#if defined(TTN_HAS_AT_COMMANDS)
+    void provisioningTask();
+    void addLineData(int numBytes);
+    void detectLineEnd(int start_at);
+    void processLine();
+#endif
+
+#if defined(TTN_CONFIG_UART)
     void configUART();
 #endif
 
@@ -53,15 +59,15 @@ private:
 private:
     bool have_keys = false;
 
-#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+#if defined(TTN_HAS_AT_COMMANDS)
     QueueHandle_t uart_queue;
     char* line_buf;
     int line_length;
     uint8_t last_line_end_char;
     bool quit_task;
-#endif
 
     friend void ttn_provisioning_task_caller(void* pvParameter);
+#endif
 };
 
 #endif

@@ -14,16 +14,19 @@ config TTN_LORA_FREQ_EU_868
     bool "Europe (868 MHz)"
 
 config TTN_LORA_FREQ_US_915
-    bool "North America (915 Mhz)"
+    bool "North America (915 MHz)"
 
 config TTN_LORA_FREQ_AU_921
-    bool "Australia (921 Mhz)"
+    bool "Australia (921 MHz)"
 
 config TTN_LORA_FREQ_AS_923
-    bool "Asia (923 Mhz)"
+    bool "Asia (923 MHz)"
+
+config TTN_LORA_FREQ_AS_923_JP
+    bool "Asia, region Japan (923 MHz)"
 
 config TTN_LORA_FREQ_IN_866
-    bool "India (866 Mhz)"
+    bool "India (866 MHz)"
 
 endchoice
 
@@ -79,22 +82,22 @@ config TTN_BG_TASK_PRIO
 
 
 choice TTN_PROVISION_UART
-    prompt "UART for provisioning"
+    prompt "AT commands"
     default TTN_PROVISION_UART_DEFAULT
     help
-        Select whether to use UART for listening for provisioning commands.
+        Select whether to listen on UART for AT commands.
         
         - Default is to use UART0 on pins GPIO1(TX) and GPIO3(RX).
         - If "Custom" is selected, UART0 or UART1 can be chosen,
           and any pins can be selected.
-        - If "None" is selected, the feature is not available.
+        - If "None" is selected, AT commands are not available.
 
 config TTN_PROVISION_UART_DEFAULT
-    bool "Default: UART0, TX=GPIO1, RX=GPIO3, 115,200 baud"
+    bool "Enabled - default settings: UART0, TX=GPIO1, RX=GPIO3, 115,200 baud"
 config TTN_PROVISION_UART_CUSTOM
-    bool "Custom"
+    bool "Enabled - custom UART settings"
 config TTN_PROVISION_UART_NONE
-    bool "None"
+    bool "Disabled"
 endchoice
 
 choice TTN_PROVISION_UART_NUM

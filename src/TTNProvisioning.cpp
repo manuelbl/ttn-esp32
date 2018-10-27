@@ -20,7 +20,7 @@
 #include "lmic/lmic.h"
 #include "hal/hal_esp32.h"
 
-#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+#if defined(TTN_HAS_AT_COMMANDS)
 const uart_port_t UART_NUM = (uart_port_t) CONFIG_TTN_PROVISION_UART_NUM;
 const int MAX_LINE_LENGTH = 128;
 #endif
@@ -35,7 +35,10 @@ static uint8_t global_dev_eui[8];
 static uint8_t global_app_eui[8];
 static uint8_t global_app_key[16];
 
+
+#if defined(TTN_HAS_AT_COMMANDS)
 void ttn_provisioning_task_caller(void* pvParameter);
+#endif
 
 
 // --- LMIC callbacks
@@ -67,7 +70,7 @@ void os_getDevKey (u1_t* buf)
 
 TTNProvisioning::TTNProvisioning()
     : have_keys(false)
-#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+#if defined(TTN_HAS_AT_COMMANDS)
         , uart_queue(nullptr), line_buf(nullptr), line_length(0), last_line_end_char(0), quit_task(false)
 #endif
 {
@@ -76,9 +79,11 @@ TTNProvisioning::TTNProvisioning()
 
 // --- Provisioning task
 
+#if defined(TTN_HAS_AT_COMMANDS)
+
 void TTNProvisioning::startTask()
 {
-#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
+#if defined(TTN_CONFIG_UART)
     configUART();
 #endif
 
@@ -287,7 +292,10 @@ void TTNProvisioning::processLine()
     uart_write_bytes(UART_NUM, is_ok ? "OK\r\n" : "ERROR\r\n", is_ok ? 4 : 7);
 }
 
-#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
+#endif
+
+
+#if defined(TTN_CONFIG_UART)
 
 void TTNProvisioning::configUART()
 {

@@ -93,16 +93,21 @@ bool TheThingsNetwork::provisionWithMAC(const char *appEui, const char *appKey)
     return provisioning.saveKeys();
 }
 
+
 void TheThingsNetwork::startProvisioningTask()
 {
-#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+#if defined(TTN_HAS_AT_COMMANDS)
     provisioning.startTask();
+#else
+    ESP_LOGE(TAG, "AT commands are disabled. Change the configuration using 'make menuconfig'");
+    ASSERT(0);
+    esp_restart();
 #endif
 }
 
 void TheThingsNetwork::waitForProvisioning()
 {
-#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+#if defined(TTN_HAS_AT_COMMANDS)
     if (isProvisioned())
     {
         ESP_LOGI(TAG, "Device is already provisioned");
@@ -113,6 +118,10 @@ void TheThingsNetwork::waitForProvisioning()
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     ESP_LOGI(TAG, "Device successfully provisioned");
+#else
+    ESP_LOGE(TAG, "AT commands are disabled. Change the configuration using 'make menuconfig'");
+    ASSERT(0);
+    esp_restart();
 #endif
 }
 

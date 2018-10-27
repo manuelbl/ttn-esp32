@@ -130,7 +130,7 @@ public:
     bool provisionWithMAC(const char *appEui, const char *appKey);
 
     /**
-     * @brief Start task that listens on configured UART for provisioning commands.
+     * @brief Start task that listens on configured UART for AT commands.
      * 
      * Run 'make menuconfig' to configure it.
      */

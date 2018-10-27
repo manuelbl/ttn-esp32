@@ -20,6 +20,9 @@
 #define CFG_au921 1
 #elif defined(CONFIG_TTN_LORA_FREQ_AS_923)
 #define CFG_as923 1
+#elif defined(CONFIG_TTN_LORA_FREQ_AS_923_JP)
+#define CFG_as923 1
+#define LMIC_COUNTRY_CODE LMIC_COUNTRY_CODE_JP
 #elif defined(CONFIG_TTN_LORA_FREQ_IN_866)
 #define CFG_in866 1
 #else
@@ -54,6 +57,14 @@
 #else
 #error TTN timer must be configured using 'make menuconfig'
 #endif
+
+#if !defined(CONFIG_TTN_PROVISION_UART_NONE)
+#define TTN_HAS_AT_COMMANDS 1
+#if defined(CONFIG_TTN_PROVISION_UART_CONFIG_YES)
+#define TTN_CONFIG_UART 1
+#endif
+#endif
+
 
 // 16 μs per tick
 // LMIC requires ticks to be 15.5μs - 100 μs long

@@ -25,11 +25,11 @@ const uart_port_t UART_NUM = (uart_port_t) CONFIG_TTN_PROVISION_UART_NUM;
 const int MAX_LINE_LENGTH = 128;
 #endif
 
-static const char* TAG = "ttn_prov";
-static const char* NVS_FLASH_PARTITION = "ttn";
-static const char* NVS_FLASH_KEY_DEV_EUI = "devEui";
-static const char* NVS_FLASH_KEY_APP_EUI = "appEui";
-static const char* NVS_FLASH_KEY_APP_KEY = "appKey";
+static const char* const TAG = "ttn_prov";
+static const char* const NVS_FLASH_PARTITION = "ttn";
+static const char* const NVS_FLASH_KEY_DEV_EUI = "devEui";
+static const char* const NVS_FLASH_KEY_APP_EUI = "appEui";
+static const char* const NVS_FLASH_KEY_APP_KEY = "appKey";
 
 static uint8_t global_dev_eui[8];
 static uint8_t global_app_eui[8];

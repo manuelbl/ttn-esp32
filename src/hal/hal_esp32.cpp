@@ -22,44 +22,44 @@
 
 #define LMIC_UNUSED_PIN 0xff
 
-static const char *TAG = "ttn_hal";
+static const char * const TAG = "ttn_hal";
 
 lmic_pinmap lmic_pins;
+HAL_ESP32 ttn_hal;
 
-typedef enum {
-    DIO0 = 0,
-    DIO1,
-    DIO2,
-    TIMER,
-    WAKEUP
-} event_t;
 
-typedef struct {
+struct HALQueueItem {
     ostime_t time;
-    event_t ev;
-} queue_item_t;
+    HAL_Event ev;
+
+    HALQueueItem() : time(0), ev(DIO0) { }
+    HALQueueItem(HAL_Event e, ostime_t t = 0)
+        : time(t), ev(e) { }
+};
+
+// -----------------------------------------------------------------------------
+// Constructor
+
+HAL_ESP32::HAL_ESP32()
+    : nextTimerEvent(0x200000000)
+{    
+}
 
 // -----------------------------------------------------------------------------
 // I/O
 
-static QueueHandle_t dio_queue;
-
-void IRAM_ATTR dio_irq_handler(void *arg)
+void IRAM_ATTR HAL_ESP32::dioIrqHandler(void *arg)
 {
     uint64_t now;
     timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
-    event_t ev = (long)arg;
-    BaseType_t higher_prio_task_woken = pdFALSE;
-    queue_item_t item = {
-        .time = (ostime_t)now,
-        .ev = ev
-    };
-    xQueueSendFromISR(dio_queue, &item, &higher_prio_task_woken);
-    if (higher_prio_task_woken)
+    BaseType_t higherPrioTaskWoken = pdFALSE;
+    HALQueueItem item { (HAL_Event)(long)arg, (ostime_t)now };
+    xQueueSendFromISR(ttn_hal.dioQueue, &item, &higherPrioTaskWoken);
+    if (higherPrioTaskWoken)
         portYIELD_FROM_ISR();
 }
 
-static void hal_io_init()
+void HAL_ESP32::ioInit()
 {
     // NSS and DIO0 and DIO1 are required
     ASSERT(lmic_pins.nss != LMIC_UNUSED_PIN);
@@ -67,35 +67,35 @@ static void hal_io_init()
     ASSERT(lmic_pins.dio1 != LMIC_UNUSED_PIN);
 
     gpio_pad_select_gpio(lmic_pins.nss);
-    gpio_set_level(lmic_pins.nss, 0);
-    gpio_set_direction(lmic_pins.nss, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)lmic_pins.nss, 0);
+    gpio_set_direction((gpio_num_t)lmic_pins.nss, GPIO_MODE_OUTPUT);
 
     if (lmic_pins.rxtx != LMIC_UNUSED_PIN)
     {
         gpio_pad_select_gpio(lmic_pins.rxtx);
-        gpio_set_level(lmic_pins.rxtx, 0);
-        gpio_set_direction(lmic_pins.rxtx, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)lmic_pins.rxtx, 0);
+        gpio_set_direction((gpio_num_t)lmic_pins.rxtx, GPIO_MODE_OUTPUT);
     }
 
     if (lmic_pins.rst != LMIC_UNUSED_PIN)
     {
-        gpio_pad_select_gpio(lmic_pins.rst);
-        gpio_set_level(lmic_pins.rst, 0);
-        gpio_set_direction(lmic_pins.rst, GPIO_MODE_OUTPUT);
+        gpio_pad_select_gpio((gpio_num_t)lmic_pins.rst);
+        gpio_set_level((gpio_num_t)lmic_pins.rst, 0);
+        gpio_set_direction((gpio_num_t)lmic_pins.rst, GPIO_MODE_OUTPUT);
     }
 
-    dio_queue = xQueueCreate(12, sizeof(queue_item_t));
-    ASSERT(dio_queue != NULL);
+    dioQueue = xQueueCreate(12, sizeof(HALQueueItem));
+    ASSERT(dioQueue != NULL);
 
     gpio_pad_select_gpio(lmic_pins.dio0);
-    gpio_set_direction(lmic_pins.dio0, GPIO_MODE_INPUT);
-    gpio_set_intr_type(lmic_pins.dio0, GPIO_INTR_POSEDGE);
-    gpio_isr_handler_add(lmic_pins.dio0, dio_irq_handler, (void *)0);
+    gpio_set_direction((gpio_num_t)lmic_pins.dio0, GPIO_MODE_INPUT);
+    gpio_set_intr_type((gpio_num_t)lmic_pins.dio0, GPIO_INTR_POSEDGE);
+    gpio_isr_handler_add((gpio_num_t)lmic_pins.dio0, dioIrqHandler, (void *)0);
 
-    gpio_pad_select_gpio(lmic_pins.dio1);
-    gpio_set_direction(lmic_pins.dio1, GPIO_MODE_INPUT);
-    gpio_set_intr_type(lmic_pins.dio1, GPIO_INTR_POSEDGE);
-    gpio_isr_handler_add(lmic_pins.dio1, dio_irq_handler, (void *)1);
+    gpio_pad_select_gpio((gpio_num_t)lmic_pins.dio1);
+    gpio_set_direction((gpio_num_t)lmic_pins.dio1, GPIO_MODE_INPUT);
+    gpio_set_intr_type((gpio_num_t)lmic_pins.dio1, GPIO_INTR_POSEDGE);
+    gpio_isr_handler_add((gpio_num_t)lmic_pins.dio1, dioIrqHandler, (void *)1);
 
     ESP_LOGI(TAG, "IO initialized");
 }
@@ -105,7 +105,7 @@ void hal_pin_rxtx(u1_t val)
     if (lmic_pins.rxtx == LMIC_UNUSED_PIN)
         return;
     
-    gpio_set_level(lmic_pins.rxtx, val);
+    gpio_set_level((gpio_num_t)lmic_pins.rxtx, val);
 }
 
 void hal_pin_rst(u1_t val)
@@ -115,41 +115,38 @@ void hal_pin_rst(u1_t val)
 
     if (val == 0 || val == 1)
     { // drive pin
-        gpio_set_level(lmic_pins.rst, val);
-        gpio_set_direction(lmic_pins.rst, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)lmic_pins.rst, val);
+        gpio_set_direction((gpio_num_t)lmic_pins.rst, GPIO_MODE_OUTPUT);
     }
     else
     { // keep pin floating
-        gpio_set_level(lmic_pins.rst, val);
-        gpio_set_direction(lmic_pins.rst, GPIO_MODE_INPUT);
+        gpio_set_level((gpio_num_t)lmic_pins.rst, val);
+        gpio_set_direction((gpio_num_t)lmic_pins.rst, GPIO_MODE_INPUT);
     }
 }
 
-s1_t hal_getRssiCal (void) {
+s1_t hal_getRssiCal (void)
+{
     return lmic_pins.rssi_cal;
 }
-
 
 // -----------------------------------------------------------------------------
 // SPI
 
-static spi_device_handle_t spi_handle;
-static spi_transaction_t spi_trx;
-
-static void hal_spi_init()
+void HAL_ESP32::spiInit()
 {
     // init device
-    spi_device_interface_config_t spi_device_intf_config = {
-        .mode = 1,
-        .clock_speed_hz = CONFIG_TTN_SPI_FREQ,
-        .command_bits = 0,
-        .address_bits = 8,
-        .spics_io_num = lmic_pins.nss,
-        .queue_size = 1,
-        .cs_ena_posttrans = 2
-    };
+    spi_device_interface_config_t spiConfig;
+    memset(&spiConfig, 0, sizeof(spiConfig));
+    spiConfig.mode = 1;
+    spiConfig.clock_speed_hz = CONFIG_TTN_SPI_FREQ;
+    spiConfig.command_bits = 0;
+    spiConfig.address_bits = 8;
+    spiConfig.spics_io_num = lmic_pins.nss;
+    spiConfig.queue_size = 1;
+    spiConfig.cs_ena_posttrans = 2;
 
-    esp_err_t ret = spi_bus_add_device(lmic_pins.spi_host, &spi_device_intf_config, &spi_handle);
+    esp_err_t ret = spi_bus_add_device(lmic_pins.spi_host, &spiConfig, &spiHandle);
     ESP_ERROR_CHECK(ret);
 
     ESP_LOGI(TAG, "SPI initialized");
@@ -157,24 +154,34 @@ static void hal_spi_init()
 
 void hal_spi_write(u1_t cmd, const u1_t *buf, int len)
 {
-    memset(&spi_trx, 0, sizeof(spi_trx));
-    spi_trx.addr = cmd;
-    spi_trx.length = 8 * len;
-    spi_trx.tx_buffer = buf;
-    esp_err_t err = spi_device_transmit(spi_handle, &spi_trx);
+    ttn_hal.spiWrite(cmd, buf, len);
+}
+
+void HAL_ESP32::spiWrite(uint8_t cmd, const uint8_t *buf, int len)
+{
+    memset(&spiTransaction, 0, sizeof(spiTransaction));
+    spiTransaction.addr = cmd;
+    spiTransaction.length = 8 * len;
+    spiTransaction.tx_buffer = buf;
+    esp_err_t err = spi_device_transmit(spiHandle, &spiTransaction);
     ESP_ERROR_CHECK(err);
 }
 
 void hal_spi_read(u1_t cmd, u1_t *buf, int len)
 {
+    ttn_hal.spiRead(cmd, buf, len);
+}
+
+void HAL_ESP32::spiRead(uint8_t cmd, uint8_t *buf, int len)
+{
     memset(buf, 0, len);
-    memset(&spi_trx, 0, sizeof(spi_trx));
-    spi_trx.addr = cmd;
-    spi_trx.length = 8 * len;
-    spi_trx.rxlength = 8 * len;
-    spi_trx.tx_buffer = buf;
-    spi_trx.rx_buffer = buf;
-    esp_err_t err = spi_device_transmit(spi_handle, &spi_trx);
+    memset(&spiTransaction, 0, sizeof(spiTransaction));
+    spiTransaction.addr = cmd;
+    spiTransaction.length = 8 * len;
+    spiTransaction.rxlength = 8 * len;
+    spiTransaction.tx_buffer = buf;
+    spiTransaction.rx_buffer = buf;
+    esp_err_t err = spi_device_transmit(spiHandle, &spiTransaction);
     ESP_ERROR_CHECK(err);
 }
 
@@ -200,13 +207,9 @@ void hal_spi_read(u1_t cmd, u1_t *buf, int len)
  * by 0x100000000.
  */
 
-#define OVERRUN_TRESHOLD 0x10000 // approx 10 seconds
+static const ostime_t OVERRUN_TRESHOLD = 0x10000; // approx 10 seconds
 
-static uint64_t next_timer_event = 0x200000000;
-
-static void IRAM_ATTR hal_timer_irq_handler(void *arg);
-
-static void hal_time_init()
+void HAL_ESP32::timerInit()
 {
     timer_config_t config = {
         .alarm_en = false,
@@ -218,13 +221,13 @@ static void hal_time_init()
     };
     timer_init(TTN_TIMER_GROUP, TTN_TIMER, &config);
     timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, 0x0);
-    timer_isr_register(TTN_TIMER_GROUP, TTN_TIMER, hal_timer_irq_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
+    timer_isr_register(TTN_TIMER_GROUP, TTN_TIMER, timerIrqHandler, NULL, ESP_INTR_FLAG_IRAM, NULL);
     timer_start(TTN_TIMER_GROUP, TTN_TIMER);
 
     ESP_LOGI(TAG, "Timer initialized");
 }
 
-static void hal_prepare_next_alarm(u4_t time)
+void HAL_ESP32::prepareNextAlarm(u4_t time)
 {
     uint64_t now;
     timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
@@ -239,74 +242,65 @@ static void hal_prepare_next_alarm(u4_t time)
         timer_start(TTN_TIMER_GROUP, TTN_TIMER);
     }
 
-    next_timer_event = time;
+    nextTimerEvent = time;
     if (now32 > time && now32 - time > OVERRUN_TRESHOLD)
-        next_timer_event += 0x100000000;
+        nextTimerEvent += 0x100000000;
 }
 
-static void hal_arm_timer()
+void HAL_ESP32::armTimer()
 {
     timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
-    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, next_timer_event);
+    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, nextTimerEvent);
     timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
 }
 
-static void hal_disarm_timer()
+void HAL_ESP32::disarmTimer()
 {
     timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
-    next_timer_event = 0x200000000; // wait indefinitely (almost)
+    nextTimerEvent = 0x200000000; // wait indefinitely (almost)
 }
 
-static void IRAM_ATTR hal_timer_irq_handler(void *arg)
+void IRAM_ATTR HAL_ESP32::timerIrqHandler(void *arg)
 {
     TTN_CLEAR_TIMER_ALARM;
-    BaseType_t higher_prio_task_woken = pdFALSE;
-    queue_item_t item = {
-        .ev = TIMER
-    };
-
-    xQueueSendFromISR(dio_queue, &item, &higher_prio_task_woken);
-    if (higher_prio_task_woken)
+    BaseType_t higherPrioTaskWoken = pdFALSE;
+    HALQueueItem item { TIMER };
+    xQueueSendFromISR(ttn_hal.dioQueue, &item, &higherPrioTaskWoken);
+    if (higherPrioTaskWoken)
         portYIELD_FROM_ISR();
 }
 
-typedef enum {
-    CHECK_IO,
-    WAIT_FOR_ANY_EVENT,
-    WAIT_FOR_TIMER
-} wait_open_e;
-
-static bool hal_wait(wait_open_e wait_option)
+bool HAL_ESP32::wait(WaitKind waitKind)
 {
-    TickType_t ticks_to_wait = wait_option == CHECK_IO ? 0 : portMAX_DELAY;
+    TickType_t ticksToWait = waitKind == CHECK_IO ? 0 : portMAX_DELAY;
     while (true)
     {
-        queue_item_t item;
-        if (xQueueReceive(dio_queue, &item, ticks_to_wait) == pdFALSE)
+        HALQueueItem item;
+        if (xQueueReceive(dioQueue, &item, ticksToWait) == pdFALSE)
             return false;
 
         if (item.ev == WAKEUP)
         {
-            if (wait_option != WAIT_FOR_TIMER)
+            if (waitKind != WAIT_FOR_TIMER)
             {
-                hal_disarm_timer();
+                disarmTimer();
                 return true;
             }
         }
         else if (item.ev == TIMER)
         {
-            hal_disarm_timer();
-            if (wait_option != CHECK_IO)
+            disarmTimer();
+            if (waitKind != CHECK_IO)
                 return true;
         }
         else // IO interrupt
         {
-            if (wait_option != WAIT_FOR_TIMER)
-                hal_disarm_timer();
-            hal_enterCriticalSection();
+            if (waitKind != WAIT_FOR_TIMER)
+                disarmTimer();
+            enterCriticalSection();
             radio_irq_handler_v2(item.ev, item.time);
-            hal_leaveCriticalSection();
-            if (wait_option != WAIT_FOR_TIMER)
+            leaveCriticalSection();
+            if (waitKind != WAIT_FOR_TIMER)
                 return true;
         }
     }
@@ -321,21 +315,29 @@ u4_t hal_ticks()
 
 void hal_waitUntil(u4_t time)
 {
-    hal_prepare_next_alarm(time);
-    hal_arm_timer();
-    hal_wait(WAIT_FOR_TIMER);
+    ttn_hal.waitUntil(time);
 }
 
-void hal_wakeUp()
+void HAL_ESP32::waitUntil(uint32_t time)
 {
-    queue_item_t item = {
-        .ev = WAKEUP
-    };
-    xQueueSend(dio_queue, &item, 0);
+    prepareNextAlarm(time);
+    armTimer();
+    wait(WAIT_FOR_TIMER);
+}
+
+void HAL_ESP32::wakeUp()
+{
+    HALQueueItem item { WAKEUP };
+    xQueueSend(dioQueue, &item, 0);
 }
 
 // check and rewind for target time
 u1_t hal_checkTimer(u4_t time)
+{
+    return ttn_hal.checkTimer(time);
+}
+
+uint8_t HAL_ESP32::checkTimer(uint32_t time)
 {
     uint64_t now;
     timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
@@ -352,18 +354,24 @@ u1_t hal_checkTimer(u4_t time)
             return 1; // timer has expired recently
     }
 
-    hal_prepare_next_alarm(time);
+    prepareNextAlarm(time);
     return 0;
 }
 
 void hal_sleep()
 {
-    if (hal_wait(CHECK_IO))
+    ttn_hal.sleep();
+}
+
+void HAL_ESP32::sleep()
+{
+    if (wait(CHECK_IO))
         return;
 
-    hal_arm_timer();
-    hal_wait(WAIT_FOR_ANY_EVENT);
+    armTimer();
+    wait(WAIT_FOR_ANY_EVENT);
 }
+
 
 // -----------------------------------------------------------------------------
 // IRQ
@@ -380,44 +388,48 @@ void hal_enableIRQs()
     // and don't access any shared data structures
 }
 
+
 // -----------------------------------------------------------------------------
 // Synchronization between application code and background task
 
-static SemaphoreHandle_t mutex;
-
-void hal_initCriticalSection()
+void HAL_ESP32::initCriticalSection()
 {
     mutex = xSemaphoreCreateRecursiveMutex();
 }
 
-void hal_enterCriticalSection()
+void HAL_ESP32::enterCriticalSection()
 {
     xSemaphoreTakeRecursive(mutex, portMAX_DELAY);
 }
 
-void hal_leaveCriticalSection()
+void HAL_ESP32::leaveCriticalSection()
 {
     xSemaphoreGiveRecursive(mutex);
 }
 
 // -----------------------------------------------------------------------------
 
-static void hal_bgTask(void* pvParameter) {
+void HAL_ESP32::backgroundTask(void* pvParameter) {
     os_runloop();
 }
 
 void hal_init_ex(const void *pContext)
 {
-    // configure radio I/O and interrupt handler
-    hal_io_init();
-    // configure radio SPI
-    hal_spi_init();
-    // configure timer and interrupt handler
-    hal_time_init();
+    ttn_hal.init();
 }
 
-void hal_startBgTask() {
-    xTaskCreate(hal_bgTask, "ttn_lora_task", 1024 * 4, NULL, CONFIG_TTN_BG_TASK_PRIO, NULL);
+void HAL_ESP32::init()
+{
+    // configure radio I/O and interrupt handler
+    ioInit();
+    // configure radio SPI
+    spiInit();
+    // configure timer and interrupt handler
+    timerInit();
+}
+
+void HAL_ESP32::startBackgroundTask() {
+    xTaskCreate(backgroundTask, "ttn_lora_task", 1024 * 4, NULL, CONFIG_TTN_BG_TASK_PRIO, NULL);
 }
 
 void hal_failed(const char *file, u2_t line)

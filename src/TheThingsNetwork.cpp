@@ -45,7 +45,7 @@ TheThingsNetwork::TheThingsNetwork()
 
     ASSERT(ttnInstance == nullptr);
     ttnInstance = this;
-    hal_initCriticalSection();
+    ttn_hal.initCriticalSection();
 }
 
 TheThingsNetwork::~TheThingsNetwork()
@@ -67,14 +67,14 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
 
     resultQueue = xQueueCreate(12, sizeof(int));
     ASSERT(resultQueue != nullptr);
-    hal_startBgTask();
+    ttn_hal.startBackgroundTask();
 }
 
 void TheThingsNetwork::reset()
 {
-    hal_enterCriticalSection();
+    ttn_hal.enterCriticalSection();
     LMIC_reset();
-    hal_leaveCriticalSection();
+    ttn_hal.leaveCriticalSection();
 }
 
 bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const char *appKey)
@@ -152,11 +152,11 @@ bool TheThingsNetwork::joinCore()
         return false;
     }
 
-    hal_enterCriticalSection();
+    ttn_hal.enterCriticalSection();
     clientAction = eActionJoining;
     LMIC_startJoining();
-    hal_wakeUp();
-    hal_leaveCriticalSection();
+    ttn_hal.wakeUp();
+    ttn_hal.leaveCriticalSection();
 
     int result = 0;
     xQueueReceive(resultQueue, &result, portMAX_DELAY);
@@ -165,17 +165,17 @@ bool TheThingsNetwork::joinCore()
 
 TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
-    hal_enterCriticalSection();
+    ttn_hal.enterCriticalSection();
     if (LMIC.opmode & OP_TXRXPEND)
     {
-        hal_leaveCriticalSection();
+        ttn_hal.leaveCriticalSection();
         return kTTNErrorTransmissionFailed;
     }
 
     clientAction = eActionSending;
     LMIC_setTxData2(port, (xref2u1_t)payload, length, confirm);
-    hal_wakeUp();
-    hal_leaveCriticalSection();
+    ttn_hal.wakeUp();
+    ttn_hal.leaveCriticalSection();
 
     int result = 0;
     xQueueReceive(resultQueue, &result, portMAX_DELAY);

@@ -283,9 +283,9 @@ void TTNProvisioning::processLine()
 
     if (reset_needed)
     {
-        hal_enterCriticalSection();
+        ttn_hal.enterCriticalSection();
         LMIC_reset();
-        hal_leaveCriticalSection();
+        ttn_hal.leaveCriticalSection();
         onEvent(EV_RESET);
     }
 

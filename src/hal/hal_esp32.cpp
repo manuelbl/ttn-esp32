@@ -130,6 +130,17 @@ s1_t hal_getRssiCal (void)
     return lmic_pins.rssi_cal;
 }
 
+ostime_t hal_setModuleActive (bit_t val)
+{
+    return 0;
+}
+
+bit_t hal_queryUsingTcxo(void)
+{
+    return false;
+}
+
+
 // -----------------------------------------------------------------------------
 // SPI
 
@@ -152,12 +163,12 @@ void HAL_ESP32::spiInit()
     ESP_LOGI(TAG, "SPI initialized");
 }
 
-void hal_spi_write(u1_t cmd, const u1_t *buf, int len)
+void hal_spi_write(u1_t cmd, const u1_t *buf, size_t len)
 {
     ttn_hal.spiWrite(cmd, buf, len);
 }
 
-void HAL_ESP32::spiWrite(uint8_t cmd, const uint8_t *buf, int len)
+void HAL_ESP32::spiWrite(uint8_t cmd, const uint8_t *buf, size_t len)
 {
     memset(&spiTransaction, 0, sizeof(spiTransaction));
     spiTransaction.addr = cmd;
@@ -167,12 +178,12 @@ void HAL_ESP32::spiWrite(uint8_t cmd, const uint8_t *buf, int len)
     ESP_ERROR_CHECK(err);
 }
 
-void hal_spi_read(u1_t cmd, u1_t *buf, int len)
+void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
 {
     ttn_hal.spiRead(cmd, buf, len);
 }
 
-void HAL_ESP32::spiRead(uint8_t cmd, uint8_t *buf, int len)
+void HAL_ESP32::spiRead(uint8_t cmd, uint8_t *buf, size_t len)
 {
     memset(buf, 0, len);
     memset(&spiTransaction, 0, sizeof(spiTransaction));

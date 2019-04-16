@@ -63,8 +63,8 @@ public:
     void initCriticalSection();
     void enterCriticalSection();
     void leaveCriticalSection();
-    void spiWrite(uint8_t cmd, const uint8_t *buf, int len);
-    void spiRead(uint8_t cmd, uint8_t *buf, int len);
+    void spiWrite(uint8_t cmd, const uint8_t *buf, size_t len);
+    void spiRead(uint8_t cmd, uint8_t *buf, size_t len);
     uint8_t checkTimer(uint32_t time);
     void sleep();
     void waitUntil(uint32_t time);

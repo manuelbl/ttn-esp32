@@ -262,9 +262,6 @@ u4_t os_aes (u1_t mode, xref2u1_t buf, u2_t len) {
             u4_t a0, a1, a2, a3;
             u4_t t0, t1, t2, t3;
             u4_t *ki, *ke;
-            // ttn-esp32 change: prevent error 'x' may be used uninitialized in this function
-            a0 = a1 = a2 = a3 = 0;
-            t0 = t1 = 0;
 
             // load input block
             if( (mode & AES_CTR) || ((mode & AES_MIC) && (mode & AES_MICNOAUX)==0) ) { // load CTR block or first MIC block

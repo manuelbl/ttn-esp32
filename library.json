@@ -1,0 +1,27 @@
+{
+    "name": "ttn-esp32",
+    "description": "The Things Network device library for ESP32 (ESP-IDF) and SX127x based devices",
+    "keywords": "esp32, ttn, espidf, lorawan, sx1276, sx1272, rfm92, rfm95, lmic",
+    "authors": {
+        "name": "Manuel Bl",
+        "email": "manuel.bleichenbacher@gmail.com",
+        "url": "https://github.com/manuelbl/ttn-esp32",
+        "maintainer": true
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/manuelbl/ttn-esp32.git",
+        "branch": "dev"
+    },
+    "version": "2.3.2",
+    "license": "MIT License",
+    "export": {
+        "include": [
+            "include",
+            "src",
+            "esp_idf_lmic_config.h"
+        ]
+    },
+    "frameworks": "espidf",
+    "platforms": "espressif32"
+}

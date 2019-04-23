@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -91,7 +91,46 @@ void LMICuslike_initDefaultChannels(bit_t fJoin) {
         LMIC.activeChannels500khz = 8;
 }
 
-u1_t LMICuslike_mapChannels(u1_t chpage, u2_t chmap) {
+// verify that a given setting is permitted
+bit_t LMICuslike_canMapChannels(u1_t chpage, u2_t chmap) {
+	/*
+	|| MCMD_LADR_CHP_125ON and MCMD_LADR_CHP_125OFF are special. The
+	|| channel map appllies to 500kHz (ch 64..71) and in addition
+	|| all channels 0..63 are turned off or on.  MCMC_LADR_CHP_BANK
+	|| is also special, in that it enables subbands.
+	*/
+	if (chpage < MCMD_LADR_CHP_USLIKE_SPECIAL) {
+		if (chmap == 0)
+			return 0;
+
+		// operate on channels 0..15, 16..31, 32..47, 48..63, 64..71
+		if (chpage == (64 >> 4)) {
+			if (chmap & 0xFF00) {
+				// those are reserved bits, fail.
+				return 0;
+			}
+		}
+	} else if (chpage == MCMD_LADR_CHP_BANK) {
+		if (chmap == 0 || (chmap & 0xFF00) != 0) {
+			// no bits set, or reserved bitsset , fail.
+			return 0;
+		}
+	} else if (chpage == MCMD_LADR_CHP_125ON || chpage == MCMD_LADR_CHP_125OFF) {
+                u1_t const en125 = chpage == MCMD_LADR_CHP_125ON;
+
+		// if disabling all 125kHz chans, must have at least one 500kHz chan
+		// don't allow reserved bits to be set in chmap.
+		if ((! en125 && chmap == 0) || (chmap & 0xFF00) != 0)
+			return 0;
+	} else {
+		return 0;
+	}
+
+	// if we get here, it looks legal.
+	return 1;
+}
+
+bit_t LMICuslike_mapChannels(u1_t chpage, u2_t chmap) {
 	/*
 	|| MCMD_LADR_CHP_125ON and MCMD_LADR_CHP_125OFF are special. The
 	|| channel map appllies to 500kHz (ch 64..71) and in addition
@@ -99,61 +138,53 @@ u1_t LMICuslike_mapChannels(u1_t chpage, u2_t chmap) {
 	|| is also special, in that it enables subbands.
 	*/
 	u1_t base, top;
+	bit_t result = 0;
+
+	if (chpage == MCMD_LADR_CHP_BANK) {
+		// each bit enables a bank of channels
+		for (u1_t subband = 0; subband < 8; ++subband, chmap >>= 1) {
+			if (chmap & 1) {
+				result |= LMIC_enableSubBand(subband);
+			} else {
+				result |= LMIC_disableSubBand(subband);
+			}
+		}
+
+		return result;
+	}
 
 	if (chpage < MCMD_LADR_CHP_USLIKE_SPECIAL) {
 		// operate on channels 0..15, 16..31, 32..47, 48..63
 		base = chpage << 4;
 		top = base + 16;
 		if (base == 64) {
-			if (chmap & 0xFF00) {
-				// those are reserved bits, fail.
-				return 0;
-			}
 			top = 72;
 		}
-	} else if (chpage == MCMD_LADR_CHP_BANK) {
-		if (chmap & 0xFF00) {
-			// those are resreved bits, fail.
-			return 0;
-		}
-		// each bit enables a bank of channels
-		for (u1_t subband = 0; subband < 8; ++subband, chmap >>= 1) {
-			if (chmap & 1) {
-				LMIC_enableSubBand(subband);
-			} else {
-				LMIC_disableSubBand(subband);
-			}
-
-		// don't change any channels below
-		base = top = 0;
-		}
-	} else if (chpage == MCMD_LADR_CHP_125ON || chpage == MCMD_LADR_CHP_125OFF) {
+	} else /* if (chpage == MCMD_LADR_CHP_125ON || chpage == MCMD_LADR_CHP_125OFF) */ {
                 u1_t const en125 = chpage == MCMD_LADR_CHP_125ON;
 
 		// enable or disable all 125kHz channels
 		for (u1_t chnl = 0; chnl < 64; ++chnl) {
 			if (en125)
-				LMIC_enableChannel(chnl);
+				result |= LMIC_enableChannel(chnl);
 			else
-				LMIC_disableChannel(chnl);
+				result |= LMIC_disableChannel(chnl);
 		}
 
 		// then apply mask to top 8 channels.
 		base = 64;
 		top = 72;
-	} else {
-		return 0;
 	}
 
 	// apply chmap to channels in [base..top-1].
 	// Use enable/disable channel to keep activeChannel counts in sync.
 	for (u1_t chnl = base; chnl < top; ++chnl, chmap >>= 1) {
 		if (chmap & 0x0001)
-			LMIC_enableChannel(chnl);
+			result |= LMIC_enableChannel(chnl);
 		else
-			LMIC_disableChannel(chnl);
+			result |= LMIC_disableChannel(chnl);
         }
-        return 1;
+        return result;
 }
 
 // US does not have duty cycling - return now as earliest TX time
@@ -183,18 +214,13 @@ void LMICuslike_initJoinLoop(void) {
         // starting point.
         setNextChannel(0, 64, LMIC.activeChannels125khz);
 
-        // initialize the adrTxPower.
-        // TODO(tmm@mcci.com): is this right for all US-like regions
-        LMIC.adrTxPow = 20; // dBm
-        ASSERT((LMIC.opmode & OP_NEXTCHNL) == 0);
-
         // make sure LMIC.txend is valid.
         LMIC.txend = os_getTime();
+        ASSERT((LMIC.opmode & OP_NEXTCHNL) == 0);
 
-        // make sure the datarate is set to DR0 per LoRaWAN regional reqts V1.0.2,
-        // section 2.2.2
-        // TODO(tmm@mcci.com): parameterize this for US-like
-        LMICcore_setDrJoin(DRCHG_SET, LORAWAN_DR0);
+        // make sure the datarate is set to DR2 per LoRaWAN regional reqts V1.0.2,
+        // section 2.*.2
+        LMICcore_setDrJoin(DRCHG_SET, LMICbandplan_getInitialDrJoin());
 
         // TODO(tmm@mcci.com) need to implement the transmit randomization and
         // duty cycle restrictions from LoRaWAN V1.0.2 section 7.
@@ -233,7 +259,7 @@ ostime_t LMICuslike_nextJoinState(void) {
                 setNextChannel(0, 64, LMIC.activeChannels125khz);
 
                 // TODO(tmm@mcci.com) parameterize
-                s1_t dr = LORAWAN_DR0;
+                s1_t dr = LMICuslike_getJoin125kHzDR();
                 if ((++LMIC.txCnt & 0x7) == 0) {
                         failed = 1; // All DR exhausted - signal failed
                 }
@@ -259,5 +285,17 @@ ostime_t LMICuslike_nextJoinState(void) {
         return failed;
 }
 #endif
+
+void LMICuslike_saveAdrState(lmic_saved_adr_state_t *pStateBuffer) {
+        memcpy(
+                pStateBuffer->channelMap,
+                LMIC.channelMap,
+                sizeof(LMIC.channelMap)
+        );
+}
+
+bit_t LMICuslike_compareAdrState(const lmic_saved_adr_state_t *pStateBuffer) {
+        return memcmp(pStateBuffer->channelMap, LMIC.channelMap, sizeof(LMIC.channelMap)) != 0;
+}
 
 #endif // CFG_LMIC_US_like

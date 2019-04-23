@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,7 @@ uint8_t LMICeu868_maxFrameLen(uint8_t dr) {
 }
 
 static CONST_TABLE(s1_t, TXPOWLEVELS)[] = {
-        20, 14, 11, 8, 5, 2, 0,0, 0,0,0,0, 0,0,0,0
+        16, 14, 12, 10, 8, 6, 4, 2, 0,0,0,0, 0,0,0,0
 };
 
 int8_t LMICeu868_pow2dBm(uint8_t mcmd_ladr_p1) {
@@ -219,6 +219,28 @@ LMICeu868_txDoneFSK(ostime_t delay, osjobcb_t func) {
         LMIC.rxtime = LMIC.txend + delay - PRERX_FSK*us2osticksRound(160);
         LMIC.rxsyms = RXLEN_FSK;
         os_setTimedCallback(&LMIC.osjob, LMIC.rxtime - RX_RAMPUP, func);
+}
+
+// set the Rx1 dndr, rps.
+void LMICeu868_setRx1Params(void) {
+    u1_t const txdr = LMIC.dndr;
+    s1_t drOffset;
+    s1_t candidateDr;
+
+    if ( LMIC.rx1DrOffset <= 5)
+        drOffset = (s1_t) LMIC.rx1DrOffset;
+    else
+        // make a reasonable assumption for unspecified value.
+        drOffset = 5;
+
+    candidateDr = (s1_t) txdr - drOffset;
+    if (candidateDr < LORAWAN_DR0)
+            candidateDr = 0;
+    else if (candidateDr > LORAWAN_DR7)
+            candidateDr = LORAWAN_DR7;
+
+    LMIC.dndr = (u1_t) candidateDr;
+    LMIC.rps = dndr2rps(LMIC.dndr);
 }
 
 void

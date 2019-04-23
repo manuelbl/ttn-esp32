@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -74,13 +74,13 @@ enum { BAND_MILLI = 0, BAND_CENTI = 1, BAND_DECI = 2, BAND_AUX = 3 };
 #define LMICbandplan_setSessionInitDefaultChannels()    \
         do { LMICbandplan_initDefaultChannels(/* normal, not join */ 0); } while (0)
 
-u1_t LMICeulike_mapChannels(u1_t chpage, u2_t chmap);
+bit_t LMICeulike_canMapChannels(u1_t chpage, u2_t chmap);
+#define LMICbandplan_canMapChannels(c, m)  LMICeulike_canMapChannels(c, m)
+
+bit_t LMICeulike_mapChannels(u1_t chpage, u2_t chmap);
 #define LMICbandplan_mapChannels(c, m)  LMICeulike_mapChannels(c, m)
 
 void LMICeulike_initJoinLoop(u1_t nDefaultChannels, s1_t adrTxPow);
-
-#define LMICbandplan_setRx1Params() \
-        do { /*LMIC.freq/rps remain unchanged*/ } while (0)
 
 void LMICeulike_updateTx(ostime_t txbeg);
 #define LMICbandplan_updateTx(t)        LMICeulike_updateTx(t)
@@ -94,5 +94,11 @@ static inline ostime_t LMICeulike_nextJoinTime(ostime_t now) {
 
 #define LMICbandplan_init()     \
         do { /* nothing */ } while (0)
+
+void LMICeulike_saveAdrState(lmic_saved_adr_state_t *pStateBuffer);
+#define LMICbandplan_saveAdrState(pState) LMICeulike_saveAdrState(pState)
+
+bit_t LMICeulike_compareAdrState(const lmic_saved_adr_state_t *pStateBuffer);
+#define LMICbandplan_compareAdrState(pState) LMICeulike_compareAdrState(pState)
 
 #endif // _lmic_eu_like_h_

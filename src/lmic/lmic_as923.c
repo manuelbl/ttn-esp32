@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -138,7 +138,7 @@ int8_t LMICas923_pow2dBm(uint8_t mcmd_ladr_p1) {
 			(mcmd_ladr_p1&MCMD_LADR_POW_MASK)>>MCMD_LADR_POW_SHIFT
 			);
 			
-	return adj;
+	return LMICas923_getMaxEIRP(LMIC.txParam) + adj;
 }
 
 // only used in this module, but used by variant macro dr2hsym().

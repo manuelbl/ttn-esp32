@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -88,5 +88,8 @@ void LMICeu868_initDefaultChannels(bit_t join);
 #undef LMICbandplan_nextJoinTime
 ostime_t LMICeu868_nextJoinTime(ostime_t now);
 #define LMICbandplan_nextJoinTime(now)     LMICeu868_nextJoinTime(now)
+
+void LMICeu868_setRx1Params(void);
+#define LMICbandplan_setRx1Params()     LMICeu868_setRx1Params()
 
 #endif // _lmic_eu868_h_

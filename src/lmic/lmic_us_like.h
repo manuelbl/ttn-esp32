@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,9 @@
 #define IS_CHANNEL_500khz(c) (c>=64 && c<72)
 #define ENABLED_CHANNEL(chnl) ((LMIC.channelMap[(chnl >> 4)] & (1<<(chnl & 0x0F))) != 0)
 
+// library functions: called from bandplan
+void LMICuslike_initJoinLoop(void);
+
 // provide the isValidBeacon1 function -- int for bool.
 static inline int
 LMICuslike_isValidBeacon1(const uint8_t *d) {
@@ -77,24 +80,30 @@ void LMICuslike_initDefaultChannels(bit_t fJoin);
 #define LMICbandplan_setSessionInitDefaultChannels()    \
         do { /* nothing */} while (0)
 
-u1_t LMICuslike_mapChannels(u1_t chpage, u2_t chmap);
+bit_t LMICuslike_canMapChannels(u1_t chpage, u2_t chmap);
+#define LMICbandplan_canMapChannels(chpage, chmap) LMICuslike_canMapChannels(chpage, chmap)
+
+bit_t LMICuslike_mapChannels(u1_t chpage, u2_t chmap);
 #define LMICbandplan_mapChannels(chpage, chmap) LMICuslike_mapChannels(chpage, chmap)
 
 ostime_t LMICuslike_nextTx(ostime_t now);
 #define LMICbandplan_nextTx(now)        LMICuslike_nextTx(now)
 
-void LMICuslike_initJoinLoop(void);
-#define LMICbandplan_initJoinLoop()     LMICuslike_initJoinLoop()
-
 ostime_t LMICuslike_nextJoinState(void);
 #define LMICbandplan_nextJoinState()    LMICuslike_nextJoinState();
 
-static inline ostime_t LMICeulike_nextJoinTime(ostime_t now) {
+static inline ostime_t LMICuslike_nextJoinTime(ostime_t now) {
         return now;
 }
-#define LMICbandplan_nextJoinTime(now)     LMICeulike_nextJoinTime(now)
+#define LMICbandplan_nextJoinTime(now)     LMICuslike_nextJoinTime(now)
 
 #define LMICbandplan_init()     \
         do { /* nothing */ } while (0)
+
+void LMICuslike_saveAdrState(lmic_saved_adr_state_t *pStateBuffer);
+#define LMICbandplan_saveAdrState(pState) LMICuslike_saveAdrState(pState)
+
+bit_t LMICuslike_compareAdrState(const lmic_saved_adr_state_t *pStateBuffer);
+#define LMICbandplan_compareAdrState(pState) LMICuslike_compareAdrState(pState)
 
 #endif // _lmic_us_like_h_

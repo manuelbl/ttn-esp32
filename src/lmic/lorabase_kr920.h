@@ -2,7 +2,7 @@
 * Copyright (c) 2014-2016 IBM Corporation.
 * All rights reserved.
 *
-* Copyright (c) 2017 MCCI Corporation
+* Copyright (c) 2017, 2019 MCCI Corporation
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -28,8 +28,8 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef _lorabase_au921_h_
-#define _lorabase_au921_h_
+#ifndef _lorabase_kr920_h_
+#define _lorabase_kr920_h_
 
 #ifndef _LMIC_CONFIG_PRECONDITIONS_H_
 # include "lmic_config_preconditions.h"
@@ -37,53 +37,48 @@
 
 /****************************************************************************\
 |
-| Basic definitions for AS921 (always in scope)
+| Basic definitions for KR920 (always in scope)
 |
 \****************************************************************************/
 
-// Frequency plan for AU 921 MHz
-enum _dr_as921_t {
-        AU921_DR_SF12 = 0,
-        AU921_DR_SF11,
-        AU921_DR_SF10,
-        AU921_DR_SF9,
-        AU921_DR_SF8,
-        AU921_DR_SF7,
-        AU921_DR_SF8C,
-        AU921_DR_NONE,
-        // Devices behind a router:
-        AU921_DR_SF12CR = 8,
-        AU921_DR_SF11CR,
-        AU921_DR_SF10CR,
-        AU921_DR_SF9CR,
-        AU921_DR_SF8CR,
-        AU921_DR_SF7CR
+enum _dr_kr920_t {
+        KR920_DR_SF12 = 0,      // DR0
+        KR920_DR_SF11,          // DR1
+        KR920_DR_SF10,          // DR2
+        KR920_DR_SF9,           // DR3
+        KR920_DR_SF8,           // DR4
+        KR920_DR_SF7,           // DR5
+        KR920_DR_NONE
 };
 
-// Default frequency plan for AU 921MHz
+// There is no dwell-time or duty-cycle limitation for IN
+//
+// max power: 30dBM
+//
+//                 freq                 datarates
 enum {
-        AU921_125kHz_UPFBASE = 915200000,
-        AU921_125kHz_UPFSTEP = 200000,
-        AU921_500kHz_UPFBASE = 915900000,
-        AU921_500kHz_UPFSTEP = 1600000,
-        AU921_500kHz_DNFBASE = 923300000,
-        AU921_500kHz_DNFSTEP = 600000
+        KR920_F1 = 922100000,      //   SF7-12 (DR0-5)
+        KR920_F2 = 922300000,      //   SF7-12 (DR0-5)
+        KR920_F3 = 922500000,      //   SF7-12 (DR0-5)
+        KR920_FBCN = 923100000,    //   beacon/ping
+        KR920_F14DBM = 922100000,  //   Allows 14 dBm (not 10) if >= this.
+        KR920_FDOWN = 921900000,   //   RX2 downlink frequency
 };
 enum {
-        AU921_FREQ_MIN = 915000000,
-        AU921_FREQ_MAX = 928000000
+        KR920_FREQ_MIN = 920900000,
+        KR920_FREQ_MAX = 923300000
 };
 enum {
-        AU921_TX_EIRP_MAX_DBM = 30      // 30 dBm
+        KR920_TX_EIRP_MAX_DBM = 14,     // 14 dBm for most
+        KR920_TX_EIRP_MAX_DBM_LOW = 10, // 10 dBm for some
 };
-enum {
-        // initial value of UplinkDwellTime before TxParamSetupReq received.
-        AU921_INITIAL_TxParam_UplinkDwellTime = 1,
-        AU921_UPLINK_DWELL_TIME_osticks = sec2osticks(20),
-};
+enum { DR_PAGE_KR920 = 0x10 * (LMIC_REGION_kr920 - 1) };
 
-enum { DR_PAGE_AU921 = 0x10 * (LMIC_REGION_au921 - 1) };
+enum { KR920_LMIC_REGION_EIRP = 1 };    // region uses EIRP
 
-enum { AU921_LMIC_REGION_EIRP = 1 };         // region uses EIRP
+enum { KR920_LBT_US = 128 };            // microseconds of LBT time.
 
-#endif /* _lorabase_au921_h_ */
+enum { KR920_LBT_DB_MAX = -80 };        // maximum channel strength in dB; if TX
+                                        // we measure more than this, we don't tx.
+
+#endif /* _lorabase_in866_h_ */

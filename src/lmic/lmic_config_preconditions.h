@@ -70,7 +70,7 @@ Revision history:
 #define LMIC_REGION_au921    5
 #define LMIC_REGION_cn490    6
 #define LMIC_REGION_as923    7
-#define LMIC_REGION_kr921    8
+#define LMIC_REGION_kr920    8
 #define LMIC_REGION_in866    9
 
 // Some regions have country-specific overrides. For generality, we specify
@@ -104,7 +104,7 @@ Revision history:
                                 (1 << LMIC_REGION_au921) |      \
                              /* (1 << LMIC_REGION_cn490) | */   \
                                 (1 << LMIC_REGION_as923) |      \
-                             /* (1 << LMIC_REGION_kr921) | */   \
+                                (1 << LMIC_REGION_kr920) |      \
                                 (1 << LMIC_REGION_in866) |      \
                                 0)
 
@@ -128,7 +128,7 @@ Revision history:
                          (defined(CFG_au921) << LMIC_REGION_au921) | \
                          (defined(CFG_cn490) << LMIC_REGION_cn490) | \
                          (defined(CFG_as923) << LMIC_REGION_as923) | \
-                         (defined(CFG_kr921) << LMIC_REGION_kr921) | \
+                         (defined(CFG_kr920) << LMIC_REGION_kr920) | \
                          (defined(CFG_in866) << LMIC_REGION_in866) | \
                          0)
 
@@ -153,8 +153,8 @@ Revision history:
 # define LMIC_COUNTRY_CODE  LMIC_COUNTRY_CODE_JP
 #elif defined(CFG_as923)
 # define CFG_region     LMIC_REGION_as923
-#elif defined(CFG_kr921)
-# define CFG_region     LMIC_REGION_kr921
+#elif defined(CFG_kr920)
+# define CFG_region     LMIC_REGION_kr920
 #elif defined(CFG_in866)
 # define CFG_region     LMIC_REGION_in866
 #else
@@ -174,7 +174,7 @@ Revision history:
                              /* (1 << LMIC_REGION_au921) | */   \
                              /* (1 << LMIC_REGION_cn490) | */   \
                                 (1 << LMIC_REGION_as923) |      \
-                                (1 << LMIC_REGION_kr921) |      \
+                                (1 << LMIC_REGION_kr920) |      \
                                 (1 << LMIC_REGION_in866) |      \
                                 0)
 
@@ -192,7 +192,7 @@ Revision history:
                                 (1 << LMIC_REGION_au921) |      \
                              /* (1 << LMIC_REGION_cn490) | */   \
                              /* (1 << LMIC_REGION_as923) | */   \
-                             /* (1 << LMIC_REGION_kr921) | */   \
+                             /* (1 << LMIC_REGION_kr920) | */   \
                              /* (1 << LMIC_REGION_in866) | */   \
                                 0)
 
@@ -203,5 +203,14 @@ Revision history:
 //
 #define CFG_LMIC_EU_like        (!!(CFG_LMIC_REGION_MASK & CFG_LMIC_EU_like_MASK))
 #define CFG_LMIC_US_like        (!!(CFG_LMIC_REGION_MASK & CFG_LMIC_US_like_MASK))
+
+//
+// The supported LMIC LoRaWAAN spec versions. These need to be numerically ordered,
+// so that we can (for example) compare
+//
+//    LMIC_LORAWAN_SPEC_VERSION < LMIC_LORAWAN_SPEC_VERSION_1_0_3.
+//
+#define LMIC_LORAWAN_SPEC_VERSION_1_0_2  0x01000200u
+#define LMIC_LORAWAN_SPEC_VERSION_1_0_3  0x01000300u
 
 #endif /* _LMIC_CONFIG_PRECONDITIONS_H_ */

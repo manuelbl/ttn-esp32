@@ -448,3 +448,7 @@ void hal_failed(const char *file, u2_t line)
     ESP_LOGE(TAG, "%s:%d", file, line);
     ASSERT(0);
 }
+
+uint8_t hal_getTxPowerPolicy(u1_t inputPolicy, s1_t requestedPower, u4_t frequency) {
+    return LMICHAL_radio_tx_power_policy_paboost;
+}

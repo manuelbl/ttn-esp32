@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017 MCCI Corporation.
+* Copyright (c) 2017, 2019 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -26,15 +26,17 @@
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef _lmic_as923_h_
-# define _lmic_as923_h_
+#ifndef _lmic_bandplan_as923_h_
+# define _lmic_bandplan_as923_h_
 
 #ifndef _lmic_eu_like_h_
 # include "lmic_eu_like.h"
 #endif
 
+// return maximum frame length (including PHY header) for this data rate (as923); 0 --> not valid dr.
 uint8_t LMICas923_maxFrameLen(uint8_t dr);
-#define maxFrameLen(dr) LMICas923_maxFrameLen(dr)
+// return maximum frame length (including PHY header) for this data rate; 0 --> not valid dr.
+#define LMICbandplan_maxFrameLen(dr) LMICas923_maxFrameLen(dr)
 
 int8_t LMICas923_pow2dBm(uint8_t mcmd_ladr_p1);
 #define pow2dBm(mcmd_ladr_p1)   LMICas923_pow2dBm(mcmd_ladr_p1)
@@ -70,13 +72,7 @@ void LMICas923_init(void);
 
 // override default for LMICbandplan_isFSK()
 #undef LMICbandplan_isFSK
-#define LMICbandplan_isFSK()    (/* TX datarate */LMIC.rxsyms == AS923_DR_FSK)
-
-// txDone handling for FSK.
-void
-LMICas923_txDoneFSK(ostime_t delay, osjobcb_t func);
-
-#define LMICbandplan_txDoneFsk(delay, func) LMICas923_txDoneFSK(delay, func)
+#define LMICbandplan_isFSK()    (/* RX datarate */LMIC.dndr == AS923_DR_FSK)
 
 #define LMICbandplan_getInitialDrJoin() (AS923_DR_SF10)
 
@@ -112,4 +108,4 @@ void LMICas923_updateTx(ostime_t txbeg);
 ostime_t LMICas923_nextJoinTime(ostime_t now);
 #define LMICbandplan_nextJoinTime(now)     LMICas923_nextJoinTime(now)
 
-#endif // _lmic_as923_h_
+#endif // _lmic_bandplan_as923_h_

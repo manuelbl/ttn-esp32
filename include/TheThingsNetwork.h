@@ -216,6 +216,17 @@ public:
      */
     bool isProvisioned();
 
+    /**
+     * @brief Sets the RSSI calibration value for LBT (Listen Before Talk).
+     * 
+     * This value is added to RSSI measured prior to decision. It must include the guardband.
+     * Ignored in US, EU, IN and other countries where LBT is not required.
+     * Default to 10 dB.
+     * 
+     * @param rssiCal RSSI calibration value, in dB
+     */
+    void setRSSICal(int8_t rssiCal);
+
 private:
     TTNMessageCallback messageCallback;
 

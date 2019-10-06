@@ -18,22 +18,6 @@
 #include <freertos/queue.h>
 #include "driver/spi_master.h"
 
-extern "C" {
-
-    typedef struct lmic_pinmap {
-        spi_host_device_t spi_host;
-        uint8_t nss;
-        uint8_t rxtx;
-        uint8_t rst;
-        uint8_t dio0;
-        uint8_t dio1;
-        int8_t rssi_cal; // cal in dB -- added to RSSI measured prior to decision. Must include noise guardband!
-    } lmic_pinmap;
-
-    extern lmic_pinmap lmic_pins;
-
-}
-
 
 enum HAL_Event {
     DIO0 = 0,
@@ -57,6 +41,7 @@ class HAL_ESP32
 public:
     HAL_ESP32();
 
+    void configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1);
     void init();
     void startBackgroundTask();
     void wakeUp();
@@ -68,6 +53,14 @@ public:
     uint8_t checkTimer(uint32_t time);
     void sleep();
     void waitUntil(uint32_t time);
+
+    spi_host_device_t spiHost;
+    gpio_num_t pinNSS;
+    gpio_num_t pinRxTx;
+    gpio_num_t pinRst;
+    gpio_num_t pinDIO0;
+    gpio_num_t pinDIO1;
+    int8_t rssiCal;
 
 private:
     static void backgroundTask(void* pvParameter);

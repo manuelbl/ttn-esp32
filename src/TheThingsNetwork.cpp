@@ -55,14 +55,9 @@ TheThingsNetwork::~TheThingsNetwork()
 
 void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1)
 {
-    lmic_pins.spi_host = spi_host;
-    lmic_pins.nss = nss;
-    lmic_pins.rxtx = rxtx;
-    lmic_pins.rst = rst;
-    lmic_pins.dio0 = dio0;
-    lmic_pins.dio1 = dio1;
+    ttn_hal.configurePins(spi_host, nss, rxtx, rst, dio0, dio1);
 
-    os_init();
+    os_init_ex(NULL);
     reset();
 
     resultQueue = xQueueCreate(12, sizeof(int));
@@ -216,19 +211,16 @@ bool TheThingsNetwork::isProvisioned()
     return provisioning.haveKeys();
 }
 
+void TheThingsNetwork::setRSSICal(int8_t rssiCal)
+{
+    ttn_hal.rssiCal = rssiCal;
+}
+
 
 // --- LMIC functions ---
 
 #if CONFIG_LOG_DEFAULT_LEVEL >= 3
-static const char *eventNames[] = {
-    nullptr,
-    "EV_SCAN_TIMEOUT", "EV_BEACON_FOUND",
-    "EV_BEACON_MISSED", "EV_BEACON_TRACKED", "EV_JOINING",
-    "EV_JOINED", "EV_RFU1", "EV_JOIN_FAILED", "EV_REJOIN_FAILED",
-    "EV_TXCOMPLETE", "EV_LOST_TSYNC", "EV_RESET",
-    "EV_RXCOMPLETE", "EV_LINK_DEAD", "EV_LINK_ALIVE", "EV_SCAN_FOUND",
-    "EV_TXSTART"
-};
+static const char *eventNames[] = { LMIC_EVENT_NAME_TABLE__INIT };
 #endif
 
 void onEvent (ev_t ev) {

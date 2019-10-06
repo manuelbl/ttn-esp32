@@ -24,7 +24,6 @@
 
 static const char * const TAG = "ttn_hal";
 
-lmic_pinmap lmic_pins;
 HAL_ESP32 ttn_hal;
 
 
@@ -41,12 +40,23 @@ struct HALQueueItem {
 // Constructor
 
 HAL_ESP32::HAL_ESP32()
-    : nextTimerEvent(0x200000000)
+    : rssiCal(10), nextTimerEvent(0x200000000)
 {    
 }
 
 // -----------------------------------------------------------------------------
 // I/O
+
+void HAL_ESP32::configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1)
+{
+    spiHost = spi_host;
+    pinNSS = (gpio_num_t)nss;
+    pinRxTx = (gpio_num_t)rxtx;
+    pinRst = (gpio_num_t)rst;
+    pinDIO0 = (gpio_num_t)dio0;
+    pinDIO1 = (gpio_num_t)dio1;
+}
+
 
 void IRAM_ATTR HAL_ESP32::dioIrqHandler(void *arg)
 {
@@ -61,73 +71,73 @@ void IRAM_ATTR HAL_ESP32::dioIrqHandler(void *arg)
 
 void HAL_ESP32::ioInit()
 {
-    // NSS and DIO0 and DIO1 are required
-    ASSERT(lmic_pins.nss != LMIC_UNUSED_PIN);
-    ASSERT(lmic_pins.dio0 != LMIC_UNUSED_PIN);
-    ASSERT(lmic_pins.dio1 != LMIC_UNUSED_PIN);
+    // pinNSS and pinDIO0 and pinDIO1 are required
+    ASSERT(pinNSS != LMIC_UNUSED_PIN);
+    ASSERT(pinDIO0 != LMIC_UNUSED_PIN);
+    ASSERT(pinDIO1 != LMIC_UNUSED_PIN);
 
-    gpio_pad_select_gpio(lmic_pins.nss);
-    gpio_set_level((gpio_num_t)lmic_pins.nss, 0);
-    gpio_set_direction((gpio_num_t)lmic_pins.nss, GPIO_MODE_OUTPUT);
+    gpio_pad_select_gpio(pinNSS);
+    gpio_set_level(pinNSS, 0);
+    gpio_set_direction(pinNSS, GPIO_MODE_OUTPUT);
 
-    if (lmic_pins.rxtx != LMIC_UNUSED_PIN)
+    if (pinRxTx != LMIC_UNUSED_PIN)
     {
-        gpio_pad_select_gpio(lmic_pins.rxtx);
-        gpio_set_level((gpio_num_t)lmic_pins.rxtx, 0);
-        gpio_set_direction((gpio_num_t)lmic_pins.rxtx, GPIO_MODE_OUTPUT);
+        gpio_pad_select_gpio(pinRxTx);
+        gpio_set_level(pinRxTx, 0);
+        gpio_set_direction(pinRxTx, GPIO_MODE_OUTPUT);
     }
 
-    if (lmic_pins.rst != LMIC_UNUSED_PIN)
+    if (pinRst != LMIC_UNUSED_PIN)
     {
-        gpio_pad_select_gpio((gpio_num_t)lmic_pins.rst);
-        gpio_set_level((gpio_num_t)lmic_pins.rst, 0);
-        gpio_set_direction((gpio_num_t)lmic_pins.rst, GPIO_MODE_OUTPUT);
+        gpio_pad_select_gpio(pinRst);
+        gpio_set_level(pinRst, 0);
+        gpio_set_direction(pinRst, GPIO_MODE_OUTPUT);
     }
 
     dioQueue = xQueueCreate(12, sizeof(HALQueueItem));
     ASSERT(dioQueue != NULL);
 
-    gpio_pad_select_gpio(lmic_pins.dio0);
-    gpio_set_direction((gpio_num_t)lmic_pins.dio0, GPIO_MODE_INPUT);
-    gpio_set_intr_type((gpio_num_t)lmic_pins.dio0, GPIO_INTR_POSEDGE);
-    gpio_isr_handler_add((gpio_num_t)lmic_pins.dio0, dioIrqHandler, (void *)0);
+    gpio_pad_select_gpio(pinDIO0);
+    gpio_set_direction(pinDIO0, GPIO_MODE_INPUT);
+    gpio_set_intr_type(pinDIO0, GPIO_INTR_POSEDGE);
+    gpio_isr_handler_add(pinDIO0, dioIrqHandler, (void *)0);
 
-    gpio_pad_select_gpio((gpio_num_t)lmic_pins.dio1);
-    gpio_set_direction((gpio_num_t)lmic_pins.dio1, GPIO_MODE_INPUT);
-    gpio_set_intr_type((gpio_num_t)lmic_pins.dio1, GPIO_INTR_POSEDGE);
-    gpio_isr_handler_add((gpio_num_t)lmic_pins.dio1, dioIrqHandler, (void *)1);
+    gpio_pad_select_gpio(pinDIO1);
+    gpio_set_direction(pinDIO1, GPIO_MODE_INPUT);
+    gpio_set_intr_type(pinDIO1, GPIO_INTR_POSEDGE);
+    gpio_isr_handler_add(pinDIO1, dioIrqHandler, (void *)1);
 
     ESP_LOGI(TAG, "IO initialized");
 }
 
 void hal_pin_rxtx(u1_t val)
 {
-    if (lmic_pins.rxtx == LMIC_UNUSED_PIN)
+    if (ttn_hal.pinRxTx == LMIC_UNUSED_PIN)
         return;
     
-    gpio_set_level((gpio_num_t)lmic_pins.rxtx, val);
+    gpio_set_level(ttn_hal.pinRxTx, val);
 }
 
 void hal_pin_rst(u1_t val)
 {
-    if (lmic_pins.rst == LMIC_UNUSED_PIN)
+    if (ttn_hal.pinRst == LMIC_UNUSED_PIN)
         return;
 
     if (val == 0 || val == 1)
     { // drive pin
-        gpio_set_level((gpio_num_t)lmic_pins.rst, val);
-        gpio_set_direction((gpio_num_t)lmic_pins.rst, GPIO_MODE_OUTPUT);
+        gpio_set_level(ttn_hal.pinRst, val);
+        gpio_set_direction(ttn_hal.pinRst, GPIO_MODE_OUTPUT);
     }
     else
     { // keep pin floating
-        gpio_set_level((gpio_num_t)lmic_pins.rst, val);
-        gpio_set_direction((gpio_num_t)lmic_pins.rst, GPIO_MODE_INPUT);
+        gpio_set_level(ttn_hal.pinRst, val);
+        gpio_set_direction(ttn_hal.pinRst, GPIO_MODE_INPUT);
     }
 }
 
 s1_t hal_getRssiCal (void)
 {
-    return lmic_pins.rssi_cal;
+    return ttn_hal.rssiCal;
 }
 
 ostime_t hal_setModuleActive (bit_t val)
@@ -153,11 +163,11 @@ void HAL_ESP32::spiInit()
     spiConfig.clock_speed_hz = CONFIG_TTN_SPI_FREQ;
     spiConfig.command_bits = 0;
     spiConfig.address_bits = 8;
-    spiConfig.spics_io_num = lmic_pins.nss;
+    spiConfig.spics_io_num = pinNSS;
     spiConfig.queue_size = 1;
     spiConfig.cs_ena_posttrans = 2;
 
-    esp_err_t ret = spi_bus_add_device(lmic_pins.spi_host, &spiConfig, &spiHandle);
+    esp_err_t ret = spi_bus_add_device(spiHost, &spiConfig, &spiHandle);
     ESP_ERROR_CHECK(ret);
 
     ESP_LOGI(TAG, "SPI initialized");

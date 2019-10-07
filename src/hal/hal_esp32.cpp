@@ -40,7 +40,7 @@ struct HALQueueItem
 // Constructor
 
 HAL_ESP32::HAL_ESP32()
-    : rssiCal(10), nextAlarm(0), isTimerArmed(false)
+    : rssiCal(10), nextAlarm(0)
 {    
 }
 
@@ -274,23 +274,17 @@ void HAL_ESP32::setNextAlarm(int64_t time)
 
 void HAL_ESP32::armTimer(int64_t espNow)
 {
-    if (isTimerArmed)
-        esp_timer_stop(timer);
     if (nextAlarm == 0)
         return;
     int64_t timeout = nextAlarm - esp_timer_get_time();
     if (timeout < 0)
         timeout = 10;
     esp_timer_start_once(timer, timeout);
-    isTimerArmed = true;
 }
 
 void HAL_ESP32::disarmTimer()
 {
-    if (!isTimerArmed)
-        return;
     esp_timer_stop(timer);
-    isTimerArmed = false;
 }
 
 void HAL_ESP32::timerCallback(void *arg)

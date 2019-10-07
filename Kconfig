@@ -46,26 +46,6 @@ config TTN_RADIO_SX1276_77_78_79
 
 endchoice
 
-choice TTN_TIMER
-    prompt "Timer"
-    default TTN_TIMER_1_GROUP_0
-    help
-        A timer is used to implement the LoRaWAN protocol. This selects the ESP32's timer.
-
-config TTN_TIMER_0_GROUP_0
-    bool "Timer 0 of group 0"
-
-config TTN_TIMER_1_GROUP_0
-    bool "Timer 1 of group 0"
-
-config TTN_TIMER_0_GROUP_1
-    bool "Timer 0 of group 1"
-
-config TTN_TIMER_1_GROUP_1
-    bool "Timer 1 of group 1"
-
-endchoice
-
 config TTN_SPI_FREQ
     int "SPI frequency (in Hz)"
     default 10000000

@@ -87,7 +87,6 @@ private:
     SemaphoreHandle_t mutex;
     esp_timer_handle_t timer;
     int64_t nextAlarm;
-    bool isTimerArmed;
 };
 
 extern HAL_ESP32 ttn_hal;

@@ -293,6 +293,10 @@ void HAL_ESP32::timerCallback(void *arg)
     xQueueSend(ttn_hal.dioQueue, &item, 0);
 }
 
+// Wait for the next external event. Either:
+// - scheduled timer due to scheduled job or waiting for a given time
+// - wake up event from the client code
+// - I/O interrupt (DIO0 or DIO1 pin)
 bool HAL_ESP32::wait(WaitKind waitKind)
 {
     TickType_t ticksToWait = waitKind == CHECK_IO ? 0 : portMAX_DELAY;
@@ -330,6 +334,7 @@ bool HAL_ESP32::wait(WaitKind waitKind)
     }
 }
 
+// Gets current time in LMIC ticks
 u4_t hal_ticks()
 {
     // LMIC tick unit: 16µs
@@ -337,6 +342,9 @@ u4_t hal_ticks()
     return (u4_t)(esp_timer_get_time() >> 4);
 }
 
+// Wait until the specified time.
+// Called if the LMIC code needs to wait for a precise time.
+// All other events are ignored and will be served later.
 void hal_waitUntil(u4_t time)
 {
     ttn_hal.waitUntil(time);
@@ -351,13 +359,18 @@ void HAL_ESP32::waitUntil(uint32_t osTime)
     wait(WAIT_FOR_TIMER);
 }
 
+// Called by client code to wake up LMIC to do something,
+// e.g. send a submitted messages.
 void HAL_ESP32::wakeUp()
 {
     HALQueueItem item { WAKEUP };
     xQueueSend(dioQueue, &item, 0);
 }
 
-// check and rewind for target time
+// Check if the specified time has been reached or almost reached.
+// Otherwise, save it as alarm time.
+// LMIC calls this function with the scheduled time of the next job
+// in the queue. If the job is not due yet, LMIC will go to sleep.
 u1_t hal_checkTimer(uint32_t time)
 {
     return ttn_hal.checkTimer(time);
@@ -375,6 +388,8 @@ uint8_t HAL_ESP32::checkTimer(u4_t osTime)
     return 0;
 }
 
+// Go to sleep until next event.
+// Called when LMIC is not busy and not job is due to be executed.
 void hal_sleep()
 {
     ttn_hal.sleep();

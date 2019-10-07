@@ -16,7 +16,8 @@
 #include <stdint.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
-#include "driver/spi_master.h"
+#include <driver/spi_master.h>
+#include <esp_timer.h>
 
 
 enum HAL_Event {
@@ -44,15 +45,18 @@ public:
     void configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1);
     void init();
     void startBackgroundTask();
+    
     void wakeUp();
     void initCriticalSection();
     void enterCriticalSection();
     void leaveCriticalSection();
+
     void spiWrite(uint8_t cmd, const uint8_t *buf, size_t len);
     void spiRead(uint8_t cmd, uint8_t *buf, size_t len);
-    uint8_t checkTimer(uint32_t time);
+    uint8_t checkTimer(uint32_t osTime);
     void sleep();
-    void waitUntil(uint32_t time);
+    
+    void waitUntil(uint32_t osTime);
 
     spi_host_device_t spiHost;
     gpio_num_t pinNSS;
@@ -65,20 +69,25 @@ public:
 private:
     static void backgroundTask(void* pvParameter);
     static void dioIrqHandler(void* arg);
+    static void timerCallback(void *arg);
+    static int64_t osTimeToEspTime(int64_t espNow, uint32_t osTime);
+
     void ioInit();
     void spiInit();
     void timerInit();
-    void prepareNextAlarm(uint32_t time);
-    void armTimer();
+
+    void setNextAlarm(int64_t time);
+    void armTimer(int64_t espNow);
     void disarmTimer();
-    static void IRAM_ATTR timerIrqHandler(void *arg);
     bool wait(WaitKind waitKind);
 
     QueueHandle_t dioQueue;
     spi_device_handle_t spiHandle;
     spi_transaction_t spiTransaction;
-    uint64_t nextTimerEvent;
     SemaphoreHandle_t mutex;
+    esp_timer_handle_t timer;
+    int64_t nextAlarm;
+    bool isTimerArmed;
 };
 
 extern HAL_ESP32 ttn_hal;

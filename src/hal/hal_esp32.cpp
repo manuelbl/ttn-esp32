@@ -22,25 +22,25 @@
 
 #define LMIC_UNUSED_PIN 0xff
 
-static const char * const TAG = "ttn_hal";
+static const char* const TAG = "ttn_hal";
 
 HAL_ESP32 ttn_hal;
 
 
-struct HALQueueItem {
-    ostime_t time;
+struct HALQueueItem
+{
+    uint32_t osTime;
     HAL_Event ev;
 
-    HALQueueItem() : time(0), ev(DIO0) { }
-    HALQueueItem(HAL_Event e, ostime_t t = 0)
-        : time(t), ev(e) { }
+    HALQueueItem() : osTime(0), ev(DIO0) { }
+    HALQueueItem(HAL_Event e, int64_t t = 0) : osTime(t), ev(e) { }
 };
 
 // -----------------------------------------------------------------------------
 // Constructor
 
 HAL_ESP32::HAL_ESP32()
-    : rssiCal(10), nextTimerEvent(0x200000000)
+    : rssiCal(10), nextAlarm(0), isTimerArmed(false)
 {    
 }
 
@@ -60,10 +60,8 @@ void HAL_ESP32::configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t r
 
 void IRAM_ATTR HAL_ESP32::dioIrqHandler(void *arg)
 {
-    uint64_t now;
-    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
     BaseType_t higherPrioTaskWoken = pdFALSE;
-    HALQueueItem item { (HAL_Event)(long)arg, (ostime_t)now };
+    HALQueueItem item { (HAL_Event)(long)arg, hal_ticks() };
     xQueueSendFromISR(ttn_hal.dioQueue, &item, &higherPrioTaskWoken);
     if (higherPrioTaskWoken)
         portYIELD_FROM_ISR();
@@ -94,9 +92,12 @@ void HAL_ESP32::ioInit()
         gpio_set_direction(pinRst, GPIO_MODE_OUTPUT);
     }
 
+    // queue to communicate from interrupts / timer callbacks
+    // to LMIC core
     dioQueue = xQueueCreate(12, sizeof(HALQueueItem));
     ASSERT(dioQueue != NULL);
 
+    // DIO pins with interrupt handlers
     gpio_pad_select_gpio(pinDIO0);
     gpio_set_direction(pinDIO0, GPIO_MODE_INPUT);
     gpio_set_intr_type(pinDIO0, GPIO_INTR_POSEDGE);
@@ -148,6 +149,11 @@ ostime_t hal_setModuleActive (bit_t val)
 bit_t hal_queryUsingTcxo(void)
 {
     return false;
+}
+
+uint8_t hal_getTxPowerPolicy(u1_t inputPolicy, s1_t requestedPower, u4_t frequency)
+{
+    return LMICHAL_radio_tx_power_policy_paboost;
 }
 
 
@@ -210,85 +216,87 @@ void HAL_ESP32::spiRead(uint8_t cmd, uint8_t *buf, size_t len)
 // TIME
 
 /*
- * LIMIC uses a 32 bit time (ostime_t) counting ticks. In this implementation
- * each tick is 16µs. So the timer will wrap around once every 19 hour.
- * The timer alarm should trigger when a specific value has been reached.
- * Due to the wrap around, an alarm time in the future can have a lower value
- * than the current timer value.
+ * LIMIC uses a 32 bit time system (ostime_t) counting ticks. In this
+ * implementation each tick is 16µs. It will wrap arounnd every 19 hours.
  * 
- * ESP32 has 64 bits counters with a pecularity: the alarm does not only
- * trigger when the exact value has been reached but also when the clock is
- * higer than the alarm value. Therefore, the wrap around is more difficult to
- * handle.
+ * The ESP32 has a 64 bit timer counting microseconds. It will wrap around
+ * every 584,000 years. So we don't need to bother.
  * 
- * The approach here is to always use a higher value than the current timer
- * value. If it would be lower than the timer value, 0x100000000 is added.
- * The lower 32 bits still represent the desired value. After the timer has
- * triggered an alarm and is higher than 0x100000000, it's value is reduced
- * by 0x100000000.
+ * Based on this timer, future callbacks can be scheduled. This is used to
+ * schedule the next LMIC job.
  */
 
-static const ostime_t OVERRUN_TRESHOLD = 0x10000; // approx 10 seconds
+// Convert LMIC tick time (ostime_t) to ESP absolute time.
+// `osTime` is assumed to be somewhere between one hour in the past and
+// 18 hours into the future. 
+int64_t HAL_ESP32::osTimeToEspTime(int64_t espNow, uint32_t osTime)
+{
+    int64_t espTime;
+    uint32_t osNow = (uint32_t)(espNow >> 4);
+
+    // unsigned difference:
+    // 0x00000000 - 0xefffffff: future (0 to about 18 hours)
+    // 0xf0000000 - 0xffffffff: past (about 1 to 0 hours)
+    uint32_t osDiff = osTime - osNow;
+    if (osDiff < 0xf0000000)
+    {
+        espTime = espNow + (((int64_t)osDiff) << 4);
+    }
+    else
+    {
+        // one's complement instead of two's complement:
+        // off by 1 µs and ignored
+        osDiff = ~osDiff;
+        espTime = espNow - (((int64_t)osDiff) << 4);
+    }
+
+    return espTime;
+}
 
 void HAL_ESP32::timerInit()
 {
-    timer_config_t config = {
-        .alarm_en = false,
-        .counter_en = false,
-        .intr_type = TIMER_INTR_LEVEL,
-        .counter_dir = TIMER_COUNT_UP,
-        .auto_reload = false,
-        .divider = 1280  /* 80 MHz APB_CLK * 16µs */
+    esp_timer_create_args_t timerConfig = {
+        .callback = &timerCallback,
+        .arg = NULL,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "lmic_job"
     };
-    timer_init(TTN_TIMER_GROUP, TTN_TIMER, &config);
-    timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, 0x0);
-    timer_isr_register(TTN_TIMER_GROUP, TTN_TIMER, timerIrqHandler, NULL, ESP_INTR_FLAG_IRAM, NULL);
-    timer_start(TTN_TIMER_GROUP, TTN_TIMER);
+    esp_err_t err = esp_timer_create(&timerConfig, &timer);
+    ESP_ERROR_CHECK(err);
 
     ESP_LOGI(TAG, "Timer initialized");
 }
 
-void HAL_ESP32::prepareNextAlarm(u4_t time)
+void HAL_ESP32::setNextAlarm(int64_t time)
 {
-    uint64_t now;
-    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
-    u4_t now32 = (u4_t)now;
-
-    if (now != now32)
-    {
-        // decrease timer to 32 bit value
-        now = now32;
-        timer_pause(TTN_TIMER_GROUP, TTN_TIMER);
-        timer_set_counter_value(TTN_TIMER_GROUP, TTN_TIMER, now);
-        timer_start(TTN_TIMER_GROUP, TTN_TIMER);
-    }
-
-    nextTimerEvent = time;
-    if (now32 > time && now32 - time > OVERRUN_TRESHOLD)
-        nextTimerEvent += 0x100000000;
+    nextAlarm = time;
 }
 
-void HAL_ESP32::armTimer()
+void HAL_ESP32::armTimer(int64_t espNow)
 {
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
-    timer_set_alarm_value(TTN_TIMER_GROUP, TTN_TIMER, nextTimerEvent);
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_EN);
+    if (isTimerArmed)
+        esp_timer_stop(timer);
+    if (nextAlarm == 0)
+        return;
+    int64_t timeout = nextAlarm - esp_timer_get_time();
+    if (timeout < 0)
+        timeout = 10;
+    esp_timer_start_once(timer, timeout);
+    isTimerArmed = true;
 }
 
 void HAL_ESP32::disarmTimer()
 {
-    timer_set_alarm(TTN_TIMER_GROUP, TTN_TIMER, TIMER_ALARM_DIS);
-    nextTimerEvent = 0x200000000; // wait indefinitely (almost)
+    if (!isTimerArmed)
+        return;
+    esp_timer_stop(timer);
+    isTimerArmed = false;
 }
 
-void IRAM_ATTR HAL_ESP32::timerIrqHandler(void *arg)
+void HAL_ESP32::timerCallback(void *arg)
 {
-    TTN_CLEAR_TIMER_ALARM;
-    BaseType_t higherPrioTaskWoken = pdFALSE;
     HALQueueItem item { TIMER };
-    xQueueSendFromISR(ttn_hal.dioQueue, &item, &higherPrioTaskWoken);
-    if (higherPrioTaskWoken)
-        portYIELD_FROM_ISR();
+    xQueueSend(ttn_hal.dioQueue, &item, 0);
 }
 
 bool HAL_ESP32::wait(WaitKind waitKind)
@@ -311,6 +319,7 @@ bool HAL_ESP32::wait(WaitKind waitKind)
         else if (item.ev == TIMER)
         {
             disarmTimer();
+            setNextAlarm(0);
             if (waitKind != CHECK_IO)
                 return true;
         }
@@ -319,7 +328,7 @@ bool HAL_ESP32::wait(WaitKind waitKind)
             if (waitKind != WAIT_FOR_TIMER)
                 disarmTimer();
             enterCriticalSection();
-            radio_irq_handler_v2(item.ev, item.time);
+            radio_irq_handler_v2(item.ev, item.osTime);
             leaveCriticalSection();
             if (waitKind != WAIT_FOR_TIMER)
                 return true;
@@ -329,9 +338,9 @@ bool HAL_ESP32::wait(WaitKind waitKind)
 
 u4_t hal_ticks()
 {
-    uint64_t val;
-    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &val);
-    return (u4_t)val;
+    // LMIC tick unit: 16µs
+    // esp_timer unit: 1µs
+    return (u4_t)(esp_timer_get_time() >> 4);
 }
 
 void hal_waitUntil(u4_t time)
@@ -339,10 +348,12 @@ void hal_waitUntil(u4_t time)
     ttn_hal.waitUntil(time);
 }
 
-void HAL_ESP32::waitUntil(uint32_t time)
+void HAL_ESP32::waitUntil(uint32_t osTime)
 {
-    prepareNextAlarm(time);
-    armTimer();
+    int64_t espNow = esp_timer_get_time();
+    int64_t espTime = osTimeToEspTime(espNow, osTime);
+    setNextAlarm(espTime);
+    armTimer(espNow);
     wait(WAIT_FOR_TIMER);
 }
 
@@ -353,29 +364,20 @@ void HAL_ESP32::wakeUp()
 }
 
 // check and rewind for target time
-u1_t hal_checkTimer(u4_t time)
+u1_t hal_checkTimer(uint32_t time)
 {
     return ttn_hal.checkTimer(time);
 }
 
-uint8_t HAL_ESP32::checkTimer(uint32_t time)
+uint8_t HAL_ESP32::checkTimer(u4_t osTime)
 {
-    uint64_t now;
-    timer_get_counter_value(TTN_TIMER_GROUP, TTN_TIMER, &now);
-    u4_t now32 = (u4_t)now;
+    int64_t espNow = esp_timer_get_time();
+    int64_t espTime = osTimeToEspTime(espNow, osTime);
+    int64_t diff = espTime - espNow;
+    if (diff < 100)
+        return 1; // timer has expired or will expire very soon
 
-    if (time >= now32)
-    {
-        if (time - now32 < 5)
-            return 1; // timer will expire very soon
-    }
-    else
-    {
-        if (now32 - time < OVERRUN_TRESHOLD)
-            return 1; // timer has expired recently
-    }
-
-    prepareNextAlarm(time);
+    setNextAlarm(espTime);
     return 0;
 }
 
@@ -389,7 +391,7 @@ void HAL_ESP32::sleep()
     if (wait(CHECK_IO))
         return;
 
-    armTimer();
+    armTimer(esp_timer_get_time());
     wait(WAIT_FOR_ANY_EVENT);
 }
 
@@ -445,7 +447,7 @@ void HAL_ESP32::init()
     ioInit();
     // configure radio SPI
     spiInit();
-    // configure timer and interrupt handler
+    // configure timer and alarm callback
     timerInit();
 }
 
@@ -457,8 +459,4 @@ void hal_failed(const char *file, u2_t line)
 {
     ESP_LOGE(TAG, "%s:%d", file, line);
     ASSERT(0);
-}
-
-uint8_t hal_getTxPowerPolicy(u1_t inputPolicy, s1_t requestedPower, u4_t frequency) {
-    return LMICHAL_radio_tx_power_policy_paboost;
 }

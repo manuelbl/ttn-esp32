@@ -2,7 +2,7 @@
  * 
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
  * 
- * Copyright (c) 2018 Manuel Bleichenbacher
+ * Copyright (c) 2018-2019 Manuel Bleichenbacher
  * 
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT

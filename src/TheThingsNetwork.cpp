@@ -2,7 +2,7 @@
  * 
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
  * 
- * Copyright (c) 2018 Manuel Bleichenbacher
+ * Copyright (c) 2018-2019 Manuel Bleichenbacher
  * 
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
@@ -17,6 +17,7 @@
 #include "hal/hal_esp32.h"
 #include "lmic/lmic.h"
 #include "TTNProvisioning.h"
+#include "TTNLogging.h"
 
 
 enum ClientAction
@@ -56,6 +57,10 @@ TheThingsNetwork::~TheThingsNetwork()
 void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1)
 {
     ttn_hal.configurePins(spi_host, nss, rxtx, rst, dio0, dio1);
+
+#if LMIC_ENABLE_event_logging
+    TTNLogging::initInstance();
+#endif
 
     os_init_ex(NULL);
     reset();

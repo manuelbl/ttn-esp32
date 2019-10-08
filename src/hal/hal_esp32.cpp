@@ -2,12 +2,12 @@
  * 
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
  * 
- * Copyright (c) 2018 Manuel Bleichenbacher
+ * Copyright (c) 2018-2019 Manuel Bleichenbacher
  * 
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
- * Hardware abstraction layer to run LMIC on a ESP32 using ESP-iDF.
+ * Hardware abstraction layer to run LMIC on a ESP32 using ESP-IDF.
  *******************************************************************************/
 
 #include "../lmic/lmic.h"

@@ -464,8 +464,27 @@ void HAL_ESP32::startBackgroundTask() {
     xTaskCreate(backgroundTask, "ttn_lora_task", 1024 * 4, NULL, CONFIG_TTN_BG_TASK_PRIO, NULL);
 }
 
+
+// -----------------------------------------------------------------------------
+// Fatal failure
+
+static hal_failure_handler_t* custom_hal_failure_handler = NULL;
+
+void hal_set_failure_handler(const hal_failure_handler_t* const handler)
+{
+    custom_hal_failure_handler = handler;
+}
+
 void hal_failed(const char *file, u2_t line)
 {
-    ESP_LOGE(TAG, "%s:%d", file, line);
-    ASSERT(0);
+    if (custom_hal_failure_handler != NULL)
+        (*custom_hal_failure_handler)(file, line);
+
+    ESP_LOGE(TAG, "LMIC failed and stopped: %s:%d", file, line);
+
+    // go to sleep forever
+    while (true)
+    {
+        vTaskDelay(portMAX_DELAY);
+    }
 }

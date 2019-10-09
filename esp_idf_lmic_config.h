@@ -58,6 +58,8 @@
 #include <stdio.h>
 #endif
 
+#define LMIC_ENABLE_onEvent 0
+
 #define DISABLE_PING
 
 #define DISABLE_BEACONS

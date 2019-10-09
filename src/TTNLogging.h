@@ -25,10 +25,11 @@ public:
     static void initInstance();
 
     void init();
-    void logEvent(const char* message, uint32_t datum);
+    void logEvent(int event, const char* message, uint32_t datum);
 
 private:
     static void loggingTask(void* param);
+    static void logFatal(const char* file, uint16_t line);
 
     RingbufHandle_t ringBuffer;
 };

@@ -20,19 +20,41 @@
 #include "TTNLogging.h"
 
 
-enum ClientAction
+enum TTNClientAction
 {
     eActionUnrelated,
     eActionJoining,
-    eActionSending
+    eActionTransmission
+};
+
+enum TTNEvent {
+    EvtNone,
+    EvtJoinCompleted,
+    EvtJoinFailed,
+    EvtMessageReceived,
+    EvtTransmissionCompleted,
+    EvtTransmissionFailed
+};
+
+struct TTNResult {
+    TTNResult(TTNEvent ev = EvtNone): event(ev) { }
+
+    TTNEvent event;
+    uint8_t port;
+    const uint8_t *message;
+    size_t messageSize;
 };
 
 static const char *TAG = "ttn";
 
 static TheThingsNetwork* ttnInstance;
 static QueueHandle_t resultQueue;
-static ClientAction clientAction = eActionUnrelated;
+static TTNClientAction clientAction = eActionUnrelated;
 static TTNProvisioning provisioning;
+
+static void eventCallback(void* userData, ev_t event);
+static void messageReceivedCallback(void *userData, uint8_t port, const uint8_t *message, size_t messageSize);
+static void messageTransmittedCallback(void *userData, int success);
 
 
 TheThingsNetwork::TheThingsNetwork()
@@ -62,10 +84,13 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     TTNLogging::initInstance();
 #endif
 
-    os_init_ex(NULL);
+    LMIC_registerEventCb(eventCallback, nullptr);
+    LMIC_registerRxMessageCb(messageReceivedCallback, nullptr);
+
+    os_init_ex(nullptr);
     reset();
 
-    resultQueue = xQueueCreate(12, sizeof(int));
+    resultQueue = xQueueCreate(4, sizeof(TTNResult));
     ASSERT(resultQueue != nullptr);
     ttn_hal.startBackgroundTask();
 }
@@ -158,9 +183,9 @@ bool TheThingsNetwork::joinCore()
     ttn_hal.wakeUp();
     ttn_hal.leaveCriticalSection();
 
-    int result = 0;
+    TTNResult result;
     xQueueReceive(resultQueue, &result, portMAX_DELAY);
-    return result == EV_JOINED;
+    return result.event == EvtJoinCompleted;
 }
 
 TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t length, port_t port, bool confirm)
@@ -172,32 +197,35 @@ TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t
         return kTTNErrorTransmissionFailed;
     }
 
-    clientAction = eActionSending;
+    clientAction = eActionTransmission;
+    LMIC.client.txMessageCb = messageTransmittedCallback;
+    LMIC.client.txMessageUserData = nullptr;
     LMIC_setTxData2(port, (xref2u1_t)payload, length, confirm);
     ttn_hal.wakeUp();
     ttn_hal.leaveCriticalSection();
 
-    int result = 0;
-    xQueueReceive(resultQueue, &result, portMAX_DELAY);
-
-    if (result == EV_TXCOMPLETE)
+    while (true)
     {
-        bool hasRecevied = (LMIC.txrxFlags & (TXRX_DNW1 | TXRX_DNW2)) != 0;
-        if (hasRecevied && messageCallback != nullptr)
+        TTNResult result;
+        xQueueReceive(resultQueue, &result, portMAX_DELAY);
+
+        switch (result.event)
         {
-            port_t port = 0;
-            if ((LMIC.txrxFlags & TXRX_PORT))
-                port = LMIC.frame[LMIC.dataBeg - 1];
-            const uint8_t* msg = nullptr;
-            if (LMIC.dataLen > 0)
-                msg = LMIC.frame + LMIC.dataBeg;
-            messageCallback(msg, LMIC.dataLen, port);
+            case EvtMessageReceived:
+                if (messageCallback != nullptr)
+                    messageCallback(result.message, result.messageSize, result.port);
+                break;
+
+            case EvtTransmissionCompleted:
+                return kTTNSuccessfulTransmission;
+
+            case EvtTransmissionFailed:
+                return kTTNErrorTransmissionFailed;
+
+            default:
+                ASSERT(0);
         }
-
-        return kTTNSuccessfulTransmission;
     }
-
-    return  kTTNErrorTransmissionFailed;
 }
 
 void TheThingsNetwork::onMessage(TTNMessageCallback callback)
@@ -222,38 +250,59 @@ void TheThingsNetwork::setRSSICal(int8_t rssiCal)
 }
 
 
-// --- LMIC functions ---
+// --- Callbacks ---
 
 #if CONFIG_LOG_DEFAULT_LEVEL >= 3
 static const char *eventNames[] = { LMIC_EVENT_NAME_TABLE__INIT };
 #endif
 
-void onEvent (ev_t ev) {
+
+
+void eventCallback(void* userData, ev_t event)
+{
     #if CONFIG_LOG_DEFAULT_LEVEL >= 3
-        ESP_LOGI(TAG, "event %s", eventNames[ev]);
+        ESP_LOGI(TAG, "event %s", eventNames[event]);
     #endif
 
-    if (ev == EV_TXCOMPLETE) {
+    if (event == EV_TXCOMPLETE) {
         if (LMIC.txrxFlags & TXRX_ACK)
             ESP_LOGI(TAG, "ACK received\n");
     }
 
-    if (clientAction == eActionUnrelated)
+    TTNEvent ttnEvent = EvtNone;
+
+    if (clientAction == eActionJoining)
     {
-        return;
-    }    
-    else if (clientAction == eActionJoining)
-    {
-        if (ev != EV_JOINED && ev != EV_REJOIN_FAILED && ev != EV_RESET)
-            return;
-    }
-    else
-    {
-        if (ev != EV_TXCOMPLETE && ev != EV_LINK_DEAD && ev != EV_RESET)
-            return;
+        if (event == EV_JOINED)
+        {
+            ttnEvent = EvtJoinCompleted;
+        }
+        else if (event == EV_REJOIN_FAILED || event == EV_RESET)
+        {
+            ttnEvent = EvtJoinFailed;
+        }
     }
 
-    int result = ev;
+    if (ttnEvent == EvtNone)
+        return;
+
+    TTNResult result(ttnEvent);
     clientAction = eActionUnrelated;
+    xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
+}
+
+void messageReceivedCallback(void *userData, uint8_t port, const uint8_t *message, size_t nMessage)
+{
+    TTNResult result(EvtMessageReceived);
+    result.port = port;
+    result.message = message;
+    result.messageSize = nMessage;
+    xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
+}
+
+void messageTransmittedCallback(void *userData, int success)
+{
+    clientAction = eActionUnrelated;
+    TTNResult result(success ? EvtTransmissionCompleted : EvtTransmissionFailed);
     xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
 }

@@ -22,7 +22,7 @@
 
 class TTNLogging {
 public:
-    static void initInstance();
+    static TTNLogging* initInstance();
 
     void init();
     void logEvent(int event, const char* message, uint32_t datum);

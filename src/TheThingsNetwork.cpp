@@ -51,6 +51,9 @@ static TheThingsNetwork* ttnInstance;
 static QueueHandle_t resultQueue;
 static TTNClientAction clientAction = eActionUnrelated;
 static TTNProvisioning provisioning;
+#if LMIC_ENABLE_event_logging
+static TTNLogging* logging;
+#endif
 
 static void eventCallback(void* userData, ev_t event);
 static void messageReceivedCallback(void *userData, uint8_t port, const uint8_t *message, size_t messageSize);
@@ -81,7 +84,7 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     ttn_hal.configurePins(spi_host, nss, rxtx, rst, dio0, dio1);
 
 #if LMIC_ENABLE_event_logging
-    TTNLogging::initInstance();
+    logging = TTNLogging::initInstance();
 #endif
 
     LMIC_registerEventCb(eventCallback, nullptr);
@@ -252,17 +255,19 @@ void TheThingsNetwork::setRSSICal(int8_t rssiCal)
 
 // --- Callbacks ---
 
-#if CONFIG_LOG_DEFAULT_LEVEL >= 3
-static const char *eventNames[] = { LMIC_EVENT_NAME_TABLE__INIT };
+#if CONFIG_LOG_DEFAULT_LEVEL >= 3 || LMIC_ENABLE_event_logging
+const char *eventNames[] = { LMIC_EVENT_NAME_TABLE__INIT };
 #endif
 
 
 
 void eventCallback(void* userData, ev_t event)
 {
-    #if CONFIG_LOG_DEFAULT_LEVEL >= 3
-        ESP_LOGI(TAG, "event %s", eventNames[event]);
-    #endif
+#if LMIC_ENABLE_event_logging
+    logging->logEvent(event, eventNames[event], 0);
+#elif CONFIG_LOG_DEFAULT_LEVEL >= 3
+    ESP_LOGI(TAG, "event %s", eventNames[event]);
+#endif
 
     if (event == EV_TXCOMPLETE) {
         if (LMIC.txrxFlags & TXRX_ACK)

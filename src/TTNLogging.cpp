@@ -43,10 +43,21 @@ struct TTNLogMessage {
     u1_t        saveIrqFlags;
 };
 
+static const char* const SF_NAMES[] = { "FSK", "SF7", "SF8", "SF9", "SF10", "SF11", "SF12", "SFrfu" };
+static const char* const BW_NAMES[] = { "BW125", "BW250", "BW500", "BWrfu" };
+static const char* const CR_NAMES[] = { "CR 4/5", "CR 4/6", "CR 4/7", "CR 4/8" };
+static const char* const CRC_NAMES[] = { "NoCrc", "Crc" };
 
-void TTNLogging::initInstance()
+static void printMessage(TTNLogMessage* log);
+static void printEvtJoined(TTNLogMessage* log);
+static void printEvtJoinFailed(TTNLogMessage* log);
+static void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep = 0);
+
+
+TTNLogging* TTNLogging::initInstance()
 {
     ttnLog.init();
+    return &ttnLog;
 }
 
 void TTNLogging::init()
@@ -122,24 +133,98 @@ void TTNLogging::loggingTask(void* param)
         if (log == nullptr)
             continue;
 
-        if (log->event == -1)
-        {
+        printMessage(log);
+
+        vRingbufferReturnItem(ringBuffer, log);
+    }
+}
+
+
+void printMessage(TTNLogMessage* log)
+{
+    switch((int)log->event)
+    {
+        case -1:
             ESP_LOGI(TAG, "%s: opmode=0x%x", log->message, log->opmode);
-        }
-        else if (log->event == -2)
-        {
+            break;
+
+        case -2:
             ESP_LOGI(TAG, "%s: datum=0x%x, opmode=0x%x)", log->message, log->datum, log->opmode);
-        }
-        else if (log->event == -3)
-        {
+            break;
+
+        case -3:
             ESP_LOGE(TAG, "%s, %d: freq=%d.%d",
                 log->message, log->datum,
                 log->freq / 1000000, (log->freq % 1000000) / 100000
             );
-        }
+            break;
 
-        vRingbufferReturnItem(ringBuffer, log);
+        case EV_JOINED:
+            printEvtJoined(log);
+            break;
+
+        case EV_JOIN_FAILED:
+            printEvtJoinFailed(log);
+            break;
+
+        default:
+            break;
     }
+}
+
+
+void printEvtJoined(TTNLogMessage* log)
+{
+    ESP_LOGI(TAG, "%s: ch=%d", log->message, (unsigned)log->txChnl);
+
+    u4_t netid = 0;
+    devaddr_t devaddr = 0;
+    u1_t nwkKey[16];
+    u1_t artKey[16];
+    LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
+
+    ESP_LOGI(TAG, "netid: %d", netid);
+
+    ESP_LOGI(TAG, "devaddr: %08x", devaddr);
+
+    char hexBuf[48];
+    bin2hex((uint8_t*)&artKey, sizeof(artKey), hexBuf, '-');
+    ESP_LOGI(TAG, "artKey: %s", hexBuf);
+
+    bin2hex((uint8_t*)&nwkKey, sizeof(nwkKey), hexBuf, '-');
+    ESP_LOGI(TAG, "nwkKey: %s", hexBuf);
+}
+
+
+void printEvtJoinFailed(TTNLogMessage* log)
+{
+    rps_t rps = log->rps;
+    ESP_LOGE(TAG, "%s: freq=%d.%d, opmode=0x%x, rps=0x%02x (%s, %s, %s, %s, IH=%d)",
+        log->message,
+        log->freq / 1000000, (log->freq % 1000000) / 100000,
+        log->opmode,
+        rps,
+        SF_NAMES[getSf(rps)],
+        BW_NAMES[getBw(rps)],
+        CR_NAMES[getCr(rps)],
+        CRC_NAMES[getNocrc(rps)],
+        getIh(rps)
+    );
+}
+
+
+static const char* HEX_DIGITS = "0123456789ABCDEF";
+
+void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep)
+{
+    int tgt = 0;
+    for (int i = 0; i < len; i++) {
+        if (sep != 0 && i != 0)
+            buf[tgt++] = sep;
+        buf[tgt++] = HEX_DIGITS[bin[i] >> 4];
+        buf[tgt++] = HEX_DIGITS[bin[i] & 0xf];
+    }
+    buf[tgt] = 0;
 }
 
 

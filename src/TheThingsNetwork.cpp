@@ -20,36 +20,45 @@
 #include "TTNLogging.h"
 
 
-enum TTNClientAction
+/**
+ * @brief Reason the user code is waiting
+ */
+enum TTNWaitingReason
 {
-    eActionUnrelated,
-    eActionJoining,
-    eActionTransmission
+    eWaitingNone,
+    eWaitingForJoin,
+    eWaitingForTransmission
 };
 
+/**
+ * @brief Event type
+ */
 enum TTNEvent {
-    EvtNone,
-    EvtJoinCompleted,
-    EvtJoinFailed,
-    EvtMessageReceived,
-    EvtTransmissionCompleted,
-    EvtTransmissionFailed
+    eEvtNone,
+    eEvtJoinCompleted,
+    eEvtJoinFailed,
+    eEvtMessageReceived,
+    eEvtTransmissionCompleted,
+    eEvtTransmissionFailed
 };
 
-struct TTNResult {
-    TTNResult(TTNEvent ev = EvtNone): event(ev) { }
+/**
+ * @brief Event message sent from LMIC task to waiting client task
+ */
+struct TTNLmicEvent {
+    TTNLmicEvent(TTNEvent ev = eEvtNone): event(ev) { }
 
     TTNEvent event;
     uint8_t port;
-    const uint8_t *message;
+    const uint8_t* message;
     size_t messageSize;
 };
 
 static const char *TAG = "ttn";
 
 static TheThingsNetwork* ttnInstance;
-static QueueHandle_t resultQueue;
-static TTNClientAction clientAction = eActionUnrelated;
+static QueueHandle_t lmicEventQueue = nullptr;
+static TTNWaitingReason waitingReason = eWaitingNone;
 static TTNProvisioning provisioning;
 #if LMIC_ENABLE_event_logging
 static TTNLogging* logging;
@@ -66,7 +75,6 @@ TheThingsNetwork::TheThingsNetwork()
 #if defined(TTN_IS_DISABLED)
     ESP_LOGE(TAG, "TTN is disabled. Configure a frequency plan using 'make menuconfig'");
     ASSERT(0);
-    esp_restart();
 #endif
 
     ASSERT(ttnInstance == nullptr);
@@ -93,8 +101,8 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     os_init_ex(nullptr);
     reset();
 
-    resultQueue = xQueueCreate(4, sizeof(TTNResult));
-    ASSERT(resultQueue != nullptr);
+    lmicEventQueue = xQueueCreate(4, sizeof(TTNLmicEvent));
+    ASSERT(lmicEventQueue != nullptr);
     ttn_hal.startBackgroundTask();
 }
 
@@ -102,6 +110,11 @@ void TheThingsNetwork::reset()
 {
     ttn_hal.enterCriticalSection();
     LMIC_reset();
+    waitingReason = eWaitingNone;
+    if (lmicEventQueue != nullptr)
+    {
+        xQueueReset(lmicEventQueue);
+    }
     ttn_hal.leaveCriticalSection();
 }
 
@@ -181,26 +194,26 @@ bool TheThingsNetwork::joinCore()
     }
 
     ttn_hal.enterCriticalSection();
-    clientAction = eActionJoining;
+    waitingReason = eWaitingForJoin;
     LMIC_startJoining();
     ttn_hal.wakeUp();
     ttn_hal.leaveCriticalSection();
 
-    TTNResult result;
-    xQueueReceive(resultQueue, &result, portMAX_DELAY);
-    return result.event == EvtJoinCompleted;
+    TTNLmicEvent event;
+    xQueueReceive(lmicEventQueue, &event, portMAX_DELAY);
+    return event.event == eEvtJoinCompleted;
 }
 
 TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
     ttn_hal.enterCriticalSection();
-    if (LMIC.opmode & OP_TXRXPEND)
+    if (waitingReason != eWaitingNone || (LMIC.opmode & OP_TXRXPEND) != 0)
     {
         ttn_hal.leaveCriticalSection();
         return kTTNErrorTransmissionFailed;
     }
 
-    clientAction = eActionTransmission;
+    waitingReason = eWaitingForTransmission;
     LMIC.client.txMessageCb = messageTransmittedCallback;
     LMIC.client.txMessageUserData = nullptr;
     LMIC_setTxData2(port, (xref2u1_t)payload, length, confirm);
@@ -209,20 +222,20 @@ TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t
 
     while (true)
     {
-        TTNResult result;
-        xQueueReceive(resultQueue, &result, portMAX_DELAY);
+        TTNLmicEvent result;
+        xQueueReceive(lmicEventQueue, &result, portMAX_DELAY);
 
         switch (result.event)
         {
-            case EvtMessageReceived:
+            case eEvtMessageReceived:
                 if (messageCallback != nullptr)
                     messageCallback(result.message, result.messageSize, result.port);
                 break;
 
-            case EvtTransmissionCompleted:
+            case eEvtTransmissionCompleted:
                 return kTTNSuccessfulTransmission;
 
-            case EvtTransmissionFailed:
+            case eEvtTransmissionFailed:
                 return kTTNErrorTransmissionFailed;
 
             default:
@@ -260,7 +273,7 @@ const char *eventNames[] = { LMIC_EVENT_NAME_TABLE__INIT };
 #endif
 
 
-
+// Called by LMIC when an LMIC event (join, join failed, reset etc.) occurs
 void eventCallback(void* userData, ev_t event)
 {
 #if LMIC_ENABLE_event_logging
@@ -269,45 +282,42 @@ void eventCallback(void* userData, ev_t event)
     ESP_LOGI(TAG, "event %s", eventNames[event]);
 #endif
 
-    if (event == EV_TXCOMPLETE) {
-        if (LMIC.txrxFlags & TXRX_ACK)
-            ESP_LOGI(TAG, "ACK received\n");
-    }
+    TTNEvent ttnEvent = eEvtNone;
 
-    TTNEvent ttnEvent = EvtNone;
-
-    if (clientAction == eActionJoining)
+    if (waitingReason == eWaitingForJoin)
     {
         if (event == EV_JOINED)
         {
-            ttnEvent = EvtJoinCompleted;
+            ttnEvent = eEvtJoinCompleted;
         }
         else if (event == EV_REJOIN_FAILED || event == EV_RESET)
         {
-            ttnEvent = EvtJoinFailed;
+            ttnEvent = eEvtJoinFailed;
         }
     }
 
-    if (ttnEvent == EvtNone)
+    if (ttnEvent == eEvtNone)
         return;
 
-    TTNResult result(ttnEvent);
-    clientAction = eActionUnrelated;
-    xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
+    TTNLmicEvent result(ttnEvent);
+    waitingReason = eWaitingNone;
+    xQueueSend(lmicEventQueue, &result, 100 / portTICK_PERIOD_MS);
 }
 
+// Called by LMIC when a message has been received
 void messageReceivedCallback(void *userData, uint8_t port, const uint8_t *message, size_t nMessage)
 {
-    TTNResult result(EvtMessageReceived);
+    TTNLmicEvent result(eEvtMessageReceived);
     result.port = port;
     result.message = message;
     result.messageSize = nMessage;
-    xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
+    xQueueSend(lmicEventQueue, &result, 100 / portTICK_PERIOD_MS);
 }
 
+// Called by LMIC when a message has been transmitted (or the transmission failed)
 void messageTransmittedCallback(void *userData, int success)
 {
-    clientAction = eActionUnrelated;
-    TTNResult result(success ? EvtTransmissionCompleted : EvtTransmissionFailed);
-    xQueueSend(resultQueue, &result, 100 / portTICK_PERIOD_MS);
+    waitingReason = eWaitingNone;
+    TTNLmicEvent result(success ? eEvtTransmissionCompleted : eEvtTransmissionFailed);
+    xQueueSend(lmicEventQueue, &result, 100 / portTICK_PERIOD_MS);
 }

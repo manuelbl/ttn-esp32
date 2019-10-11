@@ -286,7 +286,7 @@ void TTNProvisioning::processLine()
         ttn_hal.enterCriticalSection();
         LMIC_reset();
         ttn_hal.leaveCriticalSection();
-        onEvent(EV_RESET);
+        LMIC.client.eventCb(LMIC.client.eventUserData, EV_RESET);
     }
 
     uart_write_bytes(UART_NUM, is_ok ? "OK\r\n" : "ERROR\r\n", is_ok ? 4 : 7);

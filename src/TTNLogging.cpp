@@ -21,9 +21,15 @@
 #include "TTNLogging.h"
 
 
+#define NUM_RINGBUF_MSG 50
 static const char* const TAG = "lmic";
 static TTNLogging ttnLog;
 
+/**
+ * @brief Message structure used in ring buffer
+ * 
+ * The structure is sent from the LMIC task to the logging task.
+ */
 struct TTNLogMessage {
     const char* message;
     uint32_t    datum;
@@ -43,6 +49,7 @@ struct TTNLogMessage {
     u1_t        saveIrqFlags;
 };
 
+// Constants for formatting LORA values
 static const char* const SF_NAMES[] = { "FSK", "SF7", "SF8", "SF9", "SF10", "SF11", "SF12", "SFrfu" };
 static const char* const BW_NAMES[] = { "BW125", "BW250", "BW500", "BWrfu" };
 static const char* const CR_NAMES[] = { "CR 4/5", "CR 4/6", "CR 4/7", "CR 4/8" };
@@ -54,15 +61,17 @@ static void printEvtJoinFailed(TTNLogMessage* log);
 static void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep = 0);
 
 
+// Create singleton instance
 TTNLogging* TTNLogging::initInstance()
 {
     ttnLog.init();
     return &ttnLog;
 }
 
+// Initialize logging
 void TTNLogging::init()
 {
-    ringBuffer = xRingbufferCreate(50 * sizeof(TTNLogMessage), RINGBUF_TYPE_NOSPLIT);
+    ringBuffer = xRingbufferCreate(NUM_RINGBUF_MSG * sizeof(TTNLogMessage), RINGBUF_TYPE_NOSPLIT);
     if (ringBuffer == nullptr) {
         ESP_LOGE(TAG, "Failed to create ring buffer");
         ASSERT(0);
@@ -72,6 +81,7 @@ void TTNLogging::init()
     hal_set_failure_handler(logFatal);
 }
 
+// Record a logging event for later output
 void TTNLogging::logEvent(int event, const char* message, uint32_t datum)
 {
     if (ringBuffer == nullptr)
@@ -100,20 +110,22 @@ void TTNLogging::logEvent(int event, const char* message, uint32_t datum)
     xRingbufferSend(ringBuffer, &log, sizeof(log), 0);
 }
 
-
+// record a fatal event (failed assert) for later output
 void TTNLogging::logFatal(const char* file, uint16_t line)
 {
     ttnLog.logEvent(-3, file, line);
 }
 
-
-
+// Record an informational message for later output
+// The message must not be freed.
 extern "C" void LMICOS_logEvent(const char *pMessage)
 {
     ttnLog.logEvent(-1, pMessage, 0);
 
 }
 
+// Record an information message with an integer value for later output
+// The message must not be freed.
 extern "C" void LMICOS_logEventUint32(const char *pMessage, uint32_t datum)
 {
     ttnLog.logEvent(-2, pMessage, datum);
@@ -123,6 +135,7 @@ extern "C" void LMICOS_logEventUint32(const char *pMessage, uint32_t datum)
 // ---------------------------------------------------------------------------
 // Log output
 
+// Tasks that receiveds the recorded messages, formats and outputs them.
 void TTNLogging::loggingTask(void* param)
 {
     RingbufHandle_t ringBuffer = (RingbufHandle_t)param;
@@ -140,6 +153,7 @@ void TTNLogging::loggingTask(void* param)
 }
 
 
+// Format and output a log message
 void printMessage(TTNLogMessage* log)
 {
     switch((int)log->event)
@@ -173,6 +187,7 @@ void printMessage(TTNLogMessage* log)
 }
 
 
+// Format and output the detail of a successful network join
 void printEvtJoined(TTNLogMessage* log)
 {
     ESP_LOGI(TAG, "%s: ch=%d", log->message, (unsigned)log->txChnl);
@@ -196,6 +211,7 @@ void printEvtJoined(TTNLogMessage* log)
 }
 
 
+// Format and output the detail of a failed network join
 void printEvtJoinFailed(TTNLogMessage* log)
 {
     rps_t rps = log->rps;
@@ -215,6 +231,14 @@ void printEvtJoinFailed(TTNLogMessage* log)
 
 static const char* HEX_DIGITS = "0123456789ABCDEF";
 
+/**
+ * @brief Convert binary data to hexadecimal representation.
+ * 
+ * @param bin start of binary data
+ * @param len length of binary data (in bytes)
+ * @param buf buffer for hexadecimal result
+ * @param sep separator used between bytes (or 0 for none)
+ */
 void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep)
 {
     int tgt = 0;

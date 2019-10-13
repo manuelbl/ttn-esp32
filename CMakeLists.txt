@@ -12,3 +12,6 @@ set(COMPONENT_REQUIRES
 )
 
 register_component()
+
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-expansion-to-defined)
+

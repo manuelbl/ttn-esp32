@@ -16,17 +16,9 @@
 #include <stdint.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include <freertos/task.h>
 #include <driver/spi_master.h>
 #include <esp_timer.h>
-
-
-enum HAL_Event {
-    DIO0 = 0,
-    DIO1,
-    DIO2,
-    TIMER,
-    WAKEUP
-};
 
 
 enum WaitKind {
@@ -44,7 +36,7 @@ public:
 
     void configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1);
     void init();
-    void startBackgroundTask();
+    void startLMICTask();
     
     void wakeUp();
     void initCriticalSection();
@@ -67,7 +59,7 @@ public:
     int8_t rssiCal;
 
 private:
-    static void backgroundTask(void* pvParameter);
+    static void lmicBackgroundTask(void* pvParameter);
     static void dioIrqHandler(void* arg);
     static void timerCallback(void *arg);
     static int64_t osTimeToEspTime(int64_t espNow, uint32_t osTime);
@@ -81,7 +73,10 @@ private:
     void disarmTimer();
     bool wait(WaitKind waitKind);
 
-    QueueHandle_t dioQueue;
+    static TaskHandle_t lmicTask;
+    static uint32_t dioInterruptTime;
+    static uint8_t dioNum;
+
     spi_device_handle_t spiHandle;
     spi_transaction_t spiTransaction;
     SemaphoreHandle_t mutex;

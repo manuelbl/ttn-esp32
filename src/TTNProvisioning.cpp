@@ -90,7 +90,7 @@ void TTNProvisioning::startTask()
     esp_err_t err = uart_driver_install(UART_NUM, 2048, 2048, 20, &uart_queue, 0);
     ESP_ERROR_CHECK(err);
 
-    xTaskCreate(ttn_provisioning_task_caller, "provisioning", 2048, this, 1, nullptr);
+    xTaskCreate(ttn_provisioning_task_caller, "ttn_provision", 2048, this, 1, nullptr);
 }
 
 void ttn_provisioning_task_caller(void* pvParameter)

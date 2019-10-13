@@ -22,19 +22,19 @@
 
 #define LMIC_UNUSED_PIN 0xff
 
+#define NOTIFY_BIT_DIO 1
+#define NOTIFY_BIT_TIMER 2
+#define NOTIFY_BIT_WAKEUP 4
+
+
 static const char* const TAG = "ttn_hal";
 
 HAL_ESP32 ttn_hal;
 
+TaskHandle_t HAL_ESP32::lmicTask = nullptr;
+uint32_t HAL_ESP32::dioInterruptTime = 0;
+uint8_t HAL_ESP32::dioNum = 0;
 
-struct HALQueueItem
-{
-    uint32_t osTime;
-    HAL_Event ev;
-
-    HALQueueItem() : osTime(0), ev(DIO0) { }
-    HALQueueItem(HAL_Event e, int64_t t = 0) : osTime(t), ev(e) { }
-};
 
 // -----------------------------------------------------------------------------
 // Constructor
@@ -55,14 +55,19 @@ void HAL_ESP32::configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t r
     pinRst = (gpio_num_t)rst;
     pinDIO0 = (gpio_num_t)dio0;
     pinDIO1 = (gpio_num_t)dio1;
+
+    // Until the background process has been started, use the current task
+    // for supporting calls like `hal_waitUntil()`.
+    lmicTask = xTaskGetCurrentTaskHandle();
 }
 
 
 void IRAM_ATTR HAL_ESP32::dioIrqHandler(void *arg)
 {
+    dioInterruptTime = hal_ticks();
+    dioNum = (u1_t)(long)arg;
     BaseType_t higherPrioTaskWoken = pdFALSE;
-    HALQueueItem item { (HAL_Event)(long)arg, hal_ticks() };
-    xQueueSendFromISR(ttn_hal.dioQueue, &item, &higherPrioTaskWoken);
+    xTaskNotifyFromISR(lmicTask, NOTIFY_BIT_DIO, eSetBits, &higherPrioTaskWoken);
     if (higherPrioTaskWoken)
         portYIELD_FROM_ISR();
 }
@@ -92,21 +97,14 @@ void HAL_ESP32::ioInit()
         gpio_set_direction(pinRst, GPIO_MODE_OUTPUT);
     }
 
-    // queue to communicate from interrupts / timer callbacks
-    // to LMIC core
-    dioQueue = xQueueCreate(12, sizeof(HALQueueItem));
-    ASSERT(dioQueue != NULL);
-
     // DIO pins with interrupt handlers
     gpio_pad_select_gpio(pinDIO0);
     gpio_set_direction(pinDIO0, GPIO_MODE_INPUT);
     gpio_set_intr_type(pinDIO0, GPIO_INTR_POSEDGE);
-    gpio_isr_handler_add(pinDIO0, dioIrqHandler, (void *)0);
 
     gpio_pad_select_gpio(pinDIO1);
     gpio_set_direction(pinDIO1, GPIO_MODE_INPUT);
     gpio_set_intr_type(pinDIO1, GPIO_INTR_POSEDGE);
-    gpio_isr_handler_add(pinDIO1, dioIrqHandler, (void *)1);
 
     ESP_LOGI(TAG, "IO initialized");
 }
@@ -257,7 +255,7 @@ void HAL_ESP32::timerInit()
 {
     esp_timer_create_args_t timerConfig = {
         .callback = &timerCallback,
-        .arg = NULL,
+        .arg = nullptr,
         .dispatch_method = ESP_TIMER_TASK,
         .name = "lmic_job"
     };
@@ -289,8 +287,7 @@ void HAL_ESP32::disarmTimer()
 
 void HAL_ESP32::timerCallback(void *arg)
 {
-    HALQueueItem item { TIMER };
-    xQueueSend(ttn_hal.dioQueue, &item, 0);
+    xTaskNotify(lmicTask, NOTIFY_BIT_TIMER, eSetBits);
 }
 
 // Wait for the next external event. Either:
@@ -302,11 +299,11 @@ bool HAL_ESP32::wait(WaitKind waitKind)
     TickType_t ticksToWait = waitKind == CHECK_IO ? 0 : portMAX_DELAY;
     while (true)
     {
-        HALQueueItem item;
-        if (xQueueReceive(dioQueue, &item, ticksToWait) == pdFALSE)
+        uint32_t bits = ulTaskNotifyTake(pdTRUE, ticksToWait);
+        if (bits == 0)
             return false;
 
-        if (item.ev == WAKEUP)
+        if ((bits & NOTIFY_BIT_WAKEUP) != 0)
         {
             if (waitKind != WAIT_FOR_TIMER)
             {
@@ -314,7 +311,7 @@ bool HAL_ESP32::wait(WaitKind waitKind)
                 return true;
             }
         }
-        else if (item.ev == TIMER)
+        else if ((bits & NOTIFY_BIT_TIMER) != 0)
         {
             disarmTimer();
             setNextAlarm(0);
@@ -326,7 +323,7 @@ bool HAL_ESP32::wait(WaitKind waitKind)
             if (waitKind != WAIT_FOR_TIMER)
                 disarmTimer();
             enterCriticalSection();
-            radio_irq_handler_v2(item.ev, item.osTime);
+            radio_irq_handler_v2(dioNum, dioInterruptTime);
             leaveCriticalSection();
             if (waitKind != WAIT_FOR_TIMER)
                 return true;
@@ -363,8 +360,7 @@ void HAL_ESP32::waitUntil(uint32_t osTime)
 // e.g. send a submitted messages.
 void HAL_ESP32::wakeUp()
 {
-    HALQueueItem item { WAKEUP };
-    xQueueSend(dioQueue, &item, 0);
+    xTaskNotify(lmicTask, NOTIFY_BIT_WAKEUP, eSetBits);
 }
 
 // Check if the specified time has been reached or almost reached.
@@ -441,7 +437,7 @@ void HAL_ESP32::leaveCriticalSection()
 
 // -----------------------------------------------------------------------------
 
-void HAL_ESP32::backgroundTask(void* pvParameter) {
+void HAL_ESP32::lmicBackgroundTask(void* pvParameter) {
     os_runloop();
 }
 
@@ -460,15 +456,19 @@ void HAL_ESP32::init()
     timerInit();
 }
 
-void HAL_ESP32::startBackgroundTask() {
-    xTaskCreate(backgroundTask, "ttn_lora_task", 1024 * 4, NULL, CONFIG_TTN_BG_TASK_PRIO, NULL);
+void HAL_ESP32::startLMICTask() {
+    xTaskCreate(lmicBackgroundTask, "ttn_lmic", 1024 * 4, nullptr, CONFIG_TTN_BG_TASK_PRIO, &lmicTask);
+
+    // enable interrupts
+    gpio_isr_handler_add(pinDIO0, dioIrqHandler, (void *)0);
+    gpio_isr_handler_add(pinDIO1, dioIrqHandler, (void *)1);
 }
 
 
 // -----------------------------------------------------------------------------
 // Fatal failure
 
-static hal_failure_handler_t* custom_hal_failure_handler = NULL;
+static hal_failure_handler_t* custom_hal_failure_handler = nullptr;
 
 void hal_set_failure_handler(const hal_failure_handler_t* const handler)
 {
@@ -477,7 +477,7 @@ void hal_set_failure_handler(const hal_failure_handler_t* const handler)
 
 void hal_failed(const char *file, u2_t line)
 {
-    if (custom_hal_failure_handler != NULL)
+    if (custom_hal_failure_handler != nullptr)
         (*custom_hal_failure_handler)(file, line);
 
     ESP_LOGE(TAG, "LMIC failed and stopped: %s:%d", file, line);

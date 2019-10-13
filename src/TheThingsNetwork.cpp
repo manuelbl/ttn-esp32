@@ -13,9 +13,9 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_event.h"
 #include "esp_log.h"
-#include "TheThingsNetwork.h"
 #include "hal/hal_esp32.h"
 #include "lmic/lmic.h"
+#include "TheThingsNetwork.h"
 #include "TTNProvisioning.h"
 #include "TTNLogging.h"
 
@@ -103,7 +103,7 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
 
     lmicEventQueue = xQueueCreate(4, sizeof(TTNLmicEvent));
     ASSERT(lmicEventQueue != nullptr);
-    ttn_hal.startBackgroundTask();
+    ttn_hal.startLMICTask();
 }
 
 void TheThingsNetwork::reset()
@@ -301,7 +301,7 @@ void eventCallback(void* userData, ev_t event)
 
     TTNLmicEvent result(ttnEvent);
     waitingReason = eWaitingNone;
-    xQueueSend(lmicEventQueue, &result, 100 / portTICK_PERIOD_MS);
+    xQueueSend(lmicEventQueue, &result, pdMS_TO_TICKS(100));
 }
 
 // Called by LMIC when a message has been received
@@ -311,7 +311,7 @@ void messageReceivedCallback(void *userData, uint8_t port, const uint8_t *messag
     result.port = port;
     result.message = message;
     result.messageSize = nMessage;
-    xQueueSend(lmicEventQueue, &result, 100 / portTICK_PERIOD_MS);
+    xQueueSend(lmicEventQueue, &result, pdMS_TO_TICKS(100));
 }
 
 // Called by LMIC when a message has been transmitted (or the transmission failed)
@@ -319,5 +319,5 @@ void messageTransmittedCallback(void *userData, int success)
 {
     waitingReason = eWaitingNone;
     TTNLmicEvent result(success ? eEvtTransmissionCompleted : eEvtTransmissionFailed);
-    xQueueSend(lmicEventQueue, &result, 100 / portTICK_PERIOD_MS);
+    xQueueSend(lmicEventQueue, &result, pdMS_TO_TICKS(100));
 }

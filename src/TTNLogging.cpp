@@ -15,9 +15,9 @@
 
 #include <string.h>
 #include <esp_log.h>
-#include "lmic/lmic.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include "lmic/lmic.h"
 #include "TTNLogging.h"
 
 
@@ -56,8 +56,14 @@ static const char* const CR_NAMES[] = { "CR 4/5", "CR 4/6", "CR 4/7", "CR 4/8" }
 static const char* const CRC_NAMES[] = { "NoCrc", "Crc" };
 
 static void printMessage(TTNLogMessage* log);
+static void printFatalError(TTNLogMessage* log);
+static void printEvent(TTNLogMessage* log);
 static void printEvtJoined(TTNLogMessage* log);
 static void printEvtJoinFailed(TTNLogMessage* log);
+static void printEvtTxComplete(TTNLogMessage* log);
+static void printEvtTxStart(TTNLogMessage* log);
+static void printEvtRxStart(TTNLogMessage* log);
+static void printEvtJoinTxComplete(TTNLogMessage* log);
 static void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep = 0);
 
 
@@ -159,20 +165,68 @@ void printMessage(TTNLogMessage* log)
     switch((int)log->event)
     {
         case -1:
-            ESP_LOGI(TAG, "%s: opmode=0x%x", log->message, log->opmode);
-            break;
-
-        case -2:
-            ESP_LOGI(TAG, "%s: datum=0x%x, opmode=0x%x)", log->message, log->datum, log->opmode);
-            break;
-
-        case -3:
-            ESP_LOGE(TAG, "%s, %d: freq=%d.%d",
-                log->message, log->datum,
-                log->freq / 1000000, (log->freq % 1000000) / 100000
+            ESP_LOGI(TAG, "%u (%d ms) - %s: opmode=%x",
+                log->time, osticks2ms(log->time),
+                log->message, log->opmode
             );
             break;
 
+        case -2:
+            ESP_LOGI(TAG, "%u (%d ms) - %s: datum=0x%x, opmode=%x)",
+                log->time, osticks2ms(log->time),
+                log->message, log->datum, log->opmode
+            );
+            break;
+
+        case -3:
+            printFatalError(log);
+            break;
+
+        default:
+            printEvent(log);
+            break;
+    }
+}
+
+
+void printFatalError(TTNLogMessage* log)
+{
+    ESP_LOGE(TAG, "%u (%d ms) - %s, %d",
+        log->time, osticks2ms(log->time),
+        log->message, log->datum
+    );
+    ESP_LOGE(TAG, "- freq=%d.%d, txend=%u, avail=%u, ch=%u",
+        log->freq / 1000000, (log->freq % 1000000) / 100000,
+        log->txend, log->globalDutyAvail,
+        (unsigned)log->txChnl
+    );
+    rps_t rps = log->rps;
+    ESP_LOGE(TAG, "- rps=0x%02x (%s, %s, %s, %s, IH=%d)",
+        rps,
+        SF_NAMES[getSf(rps)],
+        BW_NAMES[getBw(rps)],
+        CR_NAMES[getCr(rps)],
+        CRC_NAMES[getNocrc(rps)],
+        getIh(rps)
+    );
+    ESP_LOGE(TAG, "- opmode=%x, txrxFlags=0x%02x%s, saveIrqFlags=0x%02x",
+        log->opmode,
+        log->txrxFlags,
+        (log->txrxFlags & TXRX_ACK) != 0 ? "; received ack" : "",
+        log->saveIrqFlags
+    );
+}
+
+
+void printEvent(TTNLogMessage* log)
+{
+    ESP_LOGI(TAG, "%u (%d ms) - %s",
+        log->time, osticks2ms(log->time),
+        log->message
+    );
+
+    switch((int)log->event)
+    {
         case EV_JOINED:
             printEvtJoined(log);
             break;
@@ -181,16 +235,32 @@ void printMessage(TTNLogMessage* log)
             printEvtJoinFailed(log);
             break;
 
+        case EV_TXCOMPLETE:
+            printEvtTxComplete(log);
+            break;
+
+        case EV_TXSTART:
+            printEvtTxStart(log);
+            break;
+
+        case EV_RXSTART:
+            printEvtRxStart(log);
+            break;
+
+        case EV_JOIN_TXCOMPLETE:
+            printEvtJoinTxComplete(log);
+            break;
+
         default:
             break;
-    }
+    };
 }
 
 
 // Format and output the detail of a successful network join
 void printEvtJoined(TTNLogMessage* log)
 {
-    ESP_LOGI(TAG, "%s: ch=%d", log->message, (unsigned)log->txChnl);
+    ESP_LOGI(TAG, "- ch=%d", (unsigned)log->txChnl);
 
     u4_t netid = 0;
     devaddr_t devaddr = 0;
@@ -198,16 +268,16 @@ void printEvtJoined(TTNLogMessage* log)
     u1_t artKey[16];
     LMIC_getSessionKeys(&netid, &devaddr, nwkKey, artKey);
 
-    ESP_LOGI(TAG, "netid: %d", netid);
+    ESP_LOGI(TAG, "- netid: %d", netid);
 
-    ESP_LOGI(TAG, "devaddr: %08x", devaddr);
+    ESP_LOGI(TAG, "- devaddr: %08x", devaddr);
 
     char hexBuf[48];
     bin2hex((uint8_t*)&artKey, sizeof(artKey), hexBuf, '-');
-    ESP_LOGI(TAG, "artKey: %s", hexBuf);
+    ESP_LOGI(TAG, "- artKey: %s", hexBuf);
 
     bin2hex((uint8_t*)&nwkKey, sizeof(nwkKey), hexBuf, '-');
-    ESP_LOGI(TAG, "nwkKey: %s", hexBuf);
+    ESP_LOGI(TAG, "- nwkKey: %s", hexBuf);
 }
 
 
@@ -215,8 +285,7 @@ void printEvtJoined(TTNLogMessage* log)
 void printEvtJoinFailed(TTNLogMessage* log)
 {
     rps_t rps = log->rps;
-    ESP_LOGE(TAG, "%s: freq=%d.%d, opmode=0x%x, rps=0x%02x (%s, %s, %s, %s, IH=%d)",
-        log->message,
+    ESP_LOGE(TAG, "- freq=%d.%d, opmode=%x, rps=0x%02x (%s, %s, %s, %s, IH=%d)",
         log->freq / 1000000, (log->freq % 1000000) / 100000,
         log->opmode,
         rps,
@@ -227,6 +296,72 @@ void printEvtJoinFailed(TTNLogMessage* log)
         getIh(rps)
     );
 }
+
+void printEvtTxComplete(TTNLogMessage* log)
+{
+    rps_t rps = log->rps;
+    ESP_LOGI(TAG, "- ch=%d, rps=0x%02x (%s, %s, %s, %s, IH=%d)",
+        (unsigned)log->txChnl,
+        rps,
+        SF_NAMES[getSf(rps)],
+        BW_NAMES[getBw(rps)],
+        CR_NAMES[getCr(rps)],
+        CRC_NAMES[getNocrc(rps)],
+        getIh(rps)
+    );
+    ESP_LOGI(TAG, "- txrxFlags=0x%02x%s, FcntUp=%04x, FcntDn=%04x, txend=%u",
+        log->txrxFlags,
+        (log->txrxFlags & TXRX_ACK) != 0 ? "; received ack" : "",
+        log->fcntUp, log->fcntDn,
+        log->txend
+    );
+}
+
+void printEvtTxStart(TTNLogMessage* log)
+{
+    rps_t rps = log->rps;
+    ESP_LOGI(TAG, "- ch=%d, rps=0x%02x (%s, %s, %s, %s, IH=%d)",
+        (unsigned)log->txChnl,
+        rps,
+        SF_NAMES[getSf(rps)],
+        BW_NAMES[getBw(rps)],
+        CR_NAMES[getCr(rps)],
+        CRC_NAMES[getNocrc(rps)],
+        getIh(rps)
+    );
+    ESP_LOGI(TAG, "- datarate=%u, opmode=%x, txend=%u",
+        log->datarate,
+        log->opmode,
+        log->txend
+    );
+}
+
+void printEvtRxStart(TTNLogMessage* log)
+{
+    rps_t rps = log->rps;
+    ESP_LOGI(TAG, "- freq=%d.%d, rps=0x%02x (%s, %s, %s, %s, IH=%d)",
+        log->freq / 1000000, (log->freq % 1000000) / 100000,
+        rps,
+        SF_NAMES[getSf(rps)],
+        BW_NAMES[getBw(rps)],
+        CR_NAMES[getCr(rps)],
+        CRC_NAMES[getNocrc(rps)],
+        getIh(rps)
+    );
+    ESP_LOGI(TAG, "- delta=%dms, rxsysm=%u",
+        osticks2ms(log->time - log->txend),
+        log->rxsyms
+    );
+}
+
+void printEvtJoinTxComplete(TTNLogMessage* log)
+{
+    ESP_LOGI(TAG, "- saveIrqFlags=0x%02x",
+        log->saveIrqFlags
+    );
+}
+
+
 
 
 static const char* HEX_DIGITS = "0123456789ABCDEF";

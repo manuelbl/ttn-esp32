@@ -23,6 +23,8 @@
 #elif defined(CONFIG_TTN_LORA_FREQ_AS_923_JP)
 #define CFG_as923 1
 #define LMIC_COUNTRY_CODE LMIC_COUNTRY_CODE_JP
+#elif defined(CONFIG_TTN_LORA_FREQ_KR_920)
+#define CFG_kr920 1
 #elif defined(CONFIG_TTN_LORA_FREQ_IN_866)
 #define CFG_in866 1
 #else

@@ -342,18 +342,22 @@ u4_t hal_ticks()
 // Wait until the specified time.
 // Called if the LMIC code needs to wait for a precise time.
 // All other events are ignored and will be served later.
-void hal_waitUntil(u4_t time)
+u4_t hal_waitUntil(u4_t time)
 {
-    ttn_hal.waitUntil(time);
+    return ttn_hal.waitUntil(time);
 }
 
-void HAL_ESP32::waitUntil(uint32_t osTime)
+uint32_t HAL_ESP32::waitUntil(uint32_t osTime)
 {
     int64_t espNow = esp_timer_get_time();
     int64_t espTime = osTimeToEspTime(espNow, osTime);
     setNextAlarm(espTime);
     armTimer(espNow);
     wait(WAIT_FOR_TIMER);
+
+    u4_t osNow = hal_ticks();
+    u4_t diff = osNow - osTime;
+    return diff < 0x80000000U ? diff : 0;
 }
 
 // Called by client code to wake up LMIC to do something,

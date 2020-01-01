@@ -17,7 +17,10 @@
 #elif defined(CONFIG_TTN_LORA_FREQ_US_915)
 #define CFG_us915 1
 #elif defined(CONFIG_TTN_LORA_FREQ_AU_921)
-#define CFG_au921 1
+#   warning "CONFIG_TTN_LORA_FREQ_AU_921 was deprecated in favour of CONFIG_TTN_LORA_FREQ_AU_921. Support for CONFIG_TTN_LORA_FREQ_AU_921 will be removed in the future."
+#define CFG_au915 1
+#elif defined(CONFIG_TTN_LORA_FREQ_AU_915)
+#define CFG_au915 1
 #elif defined(CONFIG_TTN_LORA_FREQ_AS_923)
 #define CFG_as923 1
 #elif defined(CONFIG_TTN_LORA_FREQ_AS_923_JP)

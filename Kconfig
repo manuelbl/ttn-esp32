@@ -16,8 +16,8 @@ config TTN_LORA_FREQ_EU_868
 config TTN_LORA_FREQ_US_915
     bool "North and South America (915 MHz)"
 
-config TTN_LORA_FREQ_AU_921
-    bool "Australia (921 MHz)"
+config TTN_LORA_FREQ_AU_915
+    bool "Australia (915 MHz)"
 
 config TTN_LORA_FREQ_AS_923
     bool "Asia (923 MHz)"

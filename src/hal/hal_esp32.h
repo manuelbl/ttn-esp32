@@ -50,7 +50,7 @@ public:
     uint8_t checkTimer(uint32_t osTime);
     void sleep();
     
-    void waitUntil(uint32_t osTime);
+    uint32_t waitUntil(uint32_t osTime);
 
     spi_host_device_t spiHost;
     gpio_num_t pinNSS;

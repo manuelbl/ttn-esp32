@@ -55,6 +55,13 @@ config TTN_SPI_FREQ
     help
         SPI frequency to communicate between ESP32 and SX127x radio chip
 
+config TTN_RADIO_RST_KEEP_ASSERTED
+        bool "Keep RST pin asserted instead of floating"
+        default n
+        help
+          Some hardware needs RST pin to be always high for LoRa chip to function
+
+
 config TTN_BG_TASK_PRIO
     int "Background task priority"
     default 10

@@ -118,6 +118,18 @@ void TheThingsNetwork::reset()
     ttn_hal.leaveCriticalSection();
 }
 
+void TheThingsNetwork::shutdown()
+{
+    ttn_hal.enterCriticalSection();
+    LMIC_shutdown();
+    waitingReason = eWaitingNone;
+    if (lmicEventQueue != nullptr)
+    {
+        xQueueReset(lmicEventQueue);
+    }
+    ttn_hal.leaveCriticalSection();
+}
+
 bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const char *appKey)
 {
     if (!provisioning.decodeKeys(devEui, appEui, appKey))

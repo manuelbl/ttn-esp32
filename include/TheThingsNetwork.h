@@ -73,6 +73,12 @@ public:
     void reset();
 
     /**
+     * @brief Shutdown the LoRaWAN radio and reduce power consumption
+     *
+     */
+    void shutdown();
+
+    /**
      * @brief Configures the pins used to communicate with the LoRaWAN radio chip.
      * 
      * 

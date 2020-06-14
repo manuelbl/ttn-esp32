@@ -21,6 +21,19 @@
  */
 #define TTN_NOT_CONNECTED 0xff
 
+class LMIC_Controls
+{
+  public:
+    void  disableChannel (uint8_t channel);
+    void  enableSubBand(uint8_t band);
+    void  enableChannel(uint8_t channel);
+    void  disableSubBand(uint8_t band);
+    void  selectSubBand(uint8_t band);
+
+    //void  setDrTxpow   (dr_t dr, s1_t txpow);  // set default/start DR/txpow
+    //void  setAdrMode   (bit_t enabled);        // set ADR mode (if mobile turn off)
+};
+
 
 typedef uint8_t port_t;
 

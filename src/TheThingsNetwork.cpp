@@ -19,6 +19,12 @@
 #include "TTNProvisioning.h"
 #include "TTNLogging.h"
 
+void LMIC_Controls::disableChannel(uint8_t channel){ LMIC_disableChannel( channel ); }
+void LMIC_Controls::enableSubBand(uint8_t band){ LMIC_enableSubBand( band ); }
+void LMIC_Controls::enableChannel(uint8_t channel){ LMIC_enableChannel( channel ); }
+void LMIC_Controls::disableSubBand(uint8_t band){ LMIC_disableSubBand( band ); }
+void LMIC_Controls::selectSubBand(uint8_t band){ LMIC_selectSubBand( band ); }
+
 
 /**
  * @brief Reason the user code is waiting

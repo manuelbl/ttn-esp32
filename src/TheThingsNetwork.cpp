@@ -195,7 +195,6 @@ bool TheThingsNetwork::joinCore()
     ttn_hal.enterCriticalSection();
     waitingReason = eWaitingForJoin;
     LMIC_startJoining();
-    LMIC_selectSubBand( 1 );
     ttn_hal.wakeUp();
     ttn_hal.leaveCriticalSection();
 

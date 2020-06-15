@@ -264,11 +264,11 @@ void TheThingsNetwork::setRSSICal(int8_t rssiCal)
     ttn_hal.rssiCal = rssiCal;
 }
 
-bool TheThingsNetwork::disableChannel(uint8_t channel){ return !LMIC_disableChannel( channel ); }
-bool TheThingsNetwork::enableSubBand(uint8_t band){ return !LMIC_enableSubBand( band ); }
-bool TheThingsNetwork::enableChannel(uint8_t channel){ return !LMIC_enableChannel( channel ); }
-bool TheThingsNetwork::disableSubBand(uint8_t band){ return !LMIC_disableSubBand( band ); }
-bool TheThingsNetwork::selectSubBand(uint8_t band){ return !LMIC_selectSubBand( band ); }
+bool TheThingsNetwork::disableChannel(uint8_t channel){ return LMIC_disableChannel( channel ); }
+bool TheThingsNetwork::enableSubBand(uint8_t band){ return LMIC_enableSubBand( band ); }
+bool TheThingsNetwork::enableChannel(uint8_t channel){ return LMIC_enableChannel( channel ); }
+bool TheThingsNetwork::disableSubBand(uint8_t band){ return LMIC_disableSubBand( band ); }
+bool TheThingsNetwork::selectSubBand(uint8_t band){ return LMIC_selectSubBand( band ); }
 
 
 // --- Callbacks ---

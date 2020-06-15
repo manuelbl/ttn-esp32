@@ -229,11 +229,14 @@ public:
     /**
      * @brief Disables a channel via the underlying LMIC library.
      *
-     * This will fail to build if this component has not been configured 
+     *.Note that it's return value is triggered via the *CHANGE* in state from 
+     * *ENABLED->DISABLED*.  A repeat call will lead to a return value of 'false' 
+     * until the channel has been 'enabled' inbetween.
+     * This will fail to build if this component has not been configured
      * (idf.py menuconfig / make menuconfig )
      *
      * @param channel unsigned integer indicating the channel number to disable
-     * @return true success
+     * @return true The channel was originally enabled and has now been disabled
      * @return false otherwise
      */
     bool disableChannel (uint8_t channel);
@@ -247,7 +250,7 @@ public:
      * (idf.py menuconfig / make menuconfig )
      *
      * @param band unsigned integer indicating which block of channels to enable
-     * @return true success
+     * @return true success, at least one of the channels in the sub-band has been enabled
      * @return false otherwise
      */
     bool enableSubBand(uint8_t band);
@@ -255,11 +258,14 @@ public:
     /**
      * @brief Enables a channel via the underlying LMIC library.
      *
+     *.Note that it's return value is triggered via the *CHANGE* in state from 
+     * *DISABLED->ENABLED*.  A repeat call will lead to a return value of 'false' 
+     * until the channel has been 'disabled' inbetween.
      * This will fail to build if this component has not been configured 
      * (idf.py menuconfig / make menuconfig )
      *
      * @param channel unsigned integer indicating which channel to enable
-     * @return true success
+     * @return true The channel was originally disabled and has now been enabled
      * @return false otherwise
      */
     bool enableChannel(uint8_t channel);
@@ -274,7 +280,7 @@ public:
      *
      *
      * @param band unsigned integer indicating which block of channels to disable
-     * @return true success
+     * @return true success, at least one of the channels in the sub-band was disabled
      * @return false otherwise
      */
     bool disableSubBand(uint8_t band);

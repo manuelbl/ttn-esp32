@@ -21,20 +21,6 @@
  */
 #define TTN_NOT_CONNECTED 0xff
 
-class LMIC_Controls
-{
-  public:
-    void  disableChannel (uint8_t channel);
-    void  enableSubBand(uint8_t band);
-    void  enableChannel(uint8_t channel);
-    void  disableSubBand(uint8_t band);
-    void  selectSubBand(uint8_t band);
-
-    //void  setDrTxpow   (dr_t dr, s1_t txpow);  // set default/start DR/txpow
-    //void  setAdrMode   (bit_t enabled);        // set ADR mode (if mobile turn off)
-};
-
-
 typedef uint8_t port_t;
 
 /**
@@ -239,6 +225,79 @@ public:
      * @param rssiCal RSSI calibration value, in dB
      */
     void setRSSICal(int8_t rssiCal);
+
+    /**
+     * @brief Disables a channel via the underlying LMIC library.
+     *
+     * This will fail to build if this component has not been configured 
+     * (idf.py menuconfig / make menuconfig )
+     *
+     * @param channel unsigned integer indicating the channel number to disable
+     * @return true success
+     * @return false otherwise
+     */
+    bool disableChannel (uint8_t channel);
+
+    /**
+     * @brief Enables a sub band (group of 8 channels).
+     *
+     * This function is used to enable a consecutive group of 8 predefined channels.  This
+     * function works through the underlying LMIC library.
+     * This will fail to build if this component has not been configured 
+     * (idf.py menuconfig / make menuconfig )
+     *
+     * @param band unsigned integer indicating which block of channels to enable
+     * @return true success
+     * @return false otherwise
+     */
+    bool enableSubBand(uint8_t band);
+
+    /**
+     * @brief Enables a channel via the underlying LMIC library.
+     *
+     * This will fail to build if this component has not been configured 
+     * (idf.py menuconfig / make menuconfig )
+     *
+     * @param channel unsigned integer indicating which channel to enable
+     * @return true success
+     * @return false otherwise
+     */
+    bool enableChannel(uint8_t channel);
+
+    /**
+     * @brief Disables a sub band (group of 8 channels).
+     *
+     * This function is used to disable a consecutive group of 8 predefined channels.  This
+     * function works through the underlying LMIC library.
+     * This will fail to build if this component has not been configured 
+     * (idf.py menuconfig / make menuconfig )
+     *
+     *
+     * @param band unsigned integer indicating which block of channels to disable
+     * @return true success
+     * @return false otherwise
+     */
+    bool disableSubBand(uint8_t band);
+
+    /**
+     * @brief Selects a single sub band (group of 8 channels) to be active at a time.
+     *
+     * This function is used to exclusively enable a block of consecutive channels.  It operates
+     * via LMIC_disableSubBand() and LMIC_enableSubBand(), enabling only the selected band.
+     * This works well when being used with gateways that only support a subset of all LoRa
+     * channels (many consumer gateways only support up to 8 channels at a time).
+     * This will fail to build if this component has not been configured 
+     * (idf.py menuconfig / make menuconfig )
+     *
+     *
+     * @param band unsigned integer indicating which block of channels to use
+     * @return true success
+     * @return false otherwise
+     */
+    bool selectSubBand(uint8_t band);
+
+    //void  setDrTxpow   (dr_t dr, s1_t txpow);  // set default/start DR/txpow
+    //void  setAdrMode   (bit_t enabled);        // set ADR mode (if mobile turn off)
 
 private:
     TTNMessageCallback messageCallback;

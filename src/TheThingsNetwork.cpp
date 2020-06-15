@@ -19,13 +19,6 @@
 #include "TTNProvisioning.h"
 #include "TTNLogging.h"
 
-void LMIC_Controls::disableChannel(uint8_t channel){ LMIC_disableChannel( channel ); }
-void LMIC_Controls::enableSubBand(uint8_t band){ LMIC_enableSubBand( band ); }
-void LMIC_Controls::enableChannel(uint8_t channel){ LMIC_enableChannel( channel ); }
-void LMIC_Controls::disableSubBand(uint8_t band){ LMIC_disableSubBand( band ); }
-void LMIC_Controls::selectSubBand(uint8_t band){ LMIC_selectSubBand( band ); }
-
-
 /**
  * @brief Reason the user code is waiting
  */
@@ -202,6 +195,7 @@ bool TheThingsNetwork::joinCore()
     ttn_hal.enterCriticalSection();
     waitingReason = eWaitingForJoin;
     LMIC_startJoining();
+    LMIC_selectSubBand( 1 );
     ttn_hal.wakeUp();
     ttn_hal.leaveCriticalSection();
 
@@ -270,6 +264,12 @@ void TheThingsNetwork::setRSSICal(int8_t rssiCal)
 {
     ttn_hal.rssiCal = rssiCal;
 }
+
+bool TheThingsNetwork::disableChannel(uint8_t channel){ return !LMIC_disableChannel( channel ); }
+bool TheThingsNetwork::enableSubBand(uint8_t band){ return !LMIC_enableSubBand( band ); }
+bool TheThingsNetwork::enableChannel(uint8_t channel){ return !LMIC_enableChannel( channel ); }
+bool TheThingsNetwork::disableSubBand(uint8_t band){ return !LMIC_disableSubBand( band ); }
+bool TheThingsNetwork::selectSubBand(uint8_t band){ return !LMIC_selectSubBand( band ); }
 
 
 // --- Callbacks ---

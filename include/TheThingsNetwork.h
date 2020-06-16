@@ -303,7 +303,13 @@ public:
     bool selectSubBand(uint8_t band);
 
     //void  setDrTxpow   (dr_t dr, s1_t txpow);  // set default/start DR/txpow
-    //void  setAdrMode   (bit_t enabled);        // set ADR mode (if mobile turn off)
+
+    /*
+     * @brief Enables or disables automatic data rate (ADR) for the device
+     *
+     * @param enabled boolean, when asserted true, ADR mode is enabled
+     */
+    void  setAdrMode   (bool enabled);        // set ADR mode (if mobile turn off)
 
 private:
     TTNMessageCallback messageCallback;

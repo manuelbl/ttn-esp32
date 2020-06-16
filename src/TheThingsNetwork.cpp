@@ -270,6 +270,8 @@ bool TheThingsNetwork::enableChannel(uint8_t channel){ return LMIC_enableChannel
 bool TheThingsNetwork::disableSubBand(uint8_t band){ return LMIC_disableSubBand( band ); }
 bool TheThingsNetwork::selectSubBand(uint8_t band){ return LMIC_selectSubBand( band ); }
 
+void TheThingsNetwork::setAdrMode( bool adr){ LMIC_setAdrMode( adr ); }
+
 
 // --- Callbacks ---
 

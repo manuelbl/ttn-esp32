@@ -221,11 +221,28 @@ public:
      * 
      * This value is added to RSSI measured prior to decision. It must include the guardband.
      * Ignored in US, EU, IN and other countries where LBT is not required.
-     * Default to 10 dB.
+     * Defaults to 10 dB.
      * 
      * @param rssiCal RSSI calibration value, in dB
      */
     void setRSSICal(int8_t rssiCal);
+
+    /**
+     * Returns whether Adaptive Data Rate (ADR) is enabled.
+     * @return true  if enabled
+     * @return false if disabled
+     */
+    bool adrEnabled();
+
+    /**
+     * @brief Enables or disabled Adaptive Data Rate (ADR).
+     * 
+     * ADR is enabled by default. It optimizes data rate, airtime and energy consumption
+     * for devices with stable RF conditions. It should be turned off for mobile devices.
+     * 
+     * @param enabled `true` to enable, `false` to disable
+     */ 
+    void setAdrEnabled(bool enabled);
 
 private:
     TTNMessageCallback messageCallback;

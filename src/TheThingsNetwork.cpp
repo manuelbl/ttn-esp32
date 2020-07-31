@@ -265,6 +265,16 @@ void TheThingsNetwork::setRSSICal(int8_t rssiCal)
     ttn_hal.rssiCal = rssiCal;
 }
 
+bool TheThingsNetwork::adrEnabled()
+{
+    return LMIC.adrEnabled != 0;
+}
+
+void TheThingsNetwork::setAdrEnabled(bool enabled)
+{
+    LMIC_setAdrMode(enabled);
+}
+
 
 // --- Callbacks ---
 

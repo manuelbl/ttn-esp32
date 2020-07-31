@@ -97,6 +97,7 @@ void ttn_provisioning_task_caller(void* pvParameter)
 {
     TTNProvisioning* provisioning = (TTNProvisioning*)pvParameter;
     provisioning->provisioningTask();
+    vTaskDelete(nullptr);
 }
 
 void TTNProvisioning::provisioningTask()
@@ -132,7 +133,6 @@ void TTNProvisioning::provisioningTask()
 
     free(line_buf);
     uart_driver_delete(UART_NUM);
-    vTaskDelete(nullptr);
 }
 
 void TTNProvisioning::addLineData(int numBytes)

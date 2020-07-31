@@ -25,6 +25,7 @@
 #define NOTIFY_BIT_DIO 1
 #define NOTIFY_BIT_TIMER 2
 #define NOTIFY_BIT_WAKEUP 4
+#define NOTIFY_BIT_STOP 8
 
 
 static const char* const TAG = "ttn_hal";
@@ -305,6 +306,9 @@ bool HAL_ESP32::wait(WaitKind waitKind)
         if (bits == 0)
             return false;
 
+        if ((bits & NOTIFY_BIT_STOP) != 0)
+            return false;
+
         if ((bits & NOTIFY_BIT_WAKEUP) != 0)
         {
             if (waitKind != WAIT_FOR_TIMER)
@@ -449,8 +453,12 @@ void HAL_ESP32::leaveCriticalSection()
 
 // -----------------------------------------------------------------------------
 
-void HAL_ESP32::lmicBackgroundTask(void* pvParameter) {
-    os_runloop();
+void HAL_ESP32::lmicBackgroundTask(void* pvParameter)
+{
+    HAL_ESP32* instance = (HAL_ESP32*)pvParameter;
+    while (instance->runBackgroundTask)
+        os_runloop_once();
+    vTaskDelete(nullptr);
 }
 
 void hal_init_ex(const void *pContext)
@@ -468,12 +476,23 @@ void HAL_ESP32::init()
     timerInit();
 }
 
-void HAL_ESP32::startLMICTask() {
-    xTaskCreate(lmicBackgroundTask, "ttn_lmic", 1024 * 4, nullptr, CONFIG_TTN_BG_TASK_PRIO, &lmicTask);
+void HAL_ESP32::startLMICTask()
+{
+    runBackgroundTask = true;
+    xTaskCreate(lmicBackgroundTask, "ttn_lmic", 1024 * 4, this, CONFIG_TTN_BG_TASK_PRIO, &lmicTask);
 
     // enable interrupts
     gpio_isr_handler_add(pinDIO0, dioIrqHandler, (void *)0);
     gpio_isr_handler_add(pinDIO1, dioIrqHandler, (void *)1);
+}
+
+void HAL_ESP32::stopLMICTask()
+{
+    runBackgroundTask = false;
+    gpio_isr_handler_remove(pinDIO0);
+    gpio_isr_handler_remove(pinDIO1);
+    disarmTimer();
+    xTaskNotify(lmicTask, NOTIFY_BIT_STOP, eSetBits);
 }
 
 

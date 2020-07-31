@@ -68,7 +68,8 @@ public:
     /**
      * @brief Reset the LoRaWAN radio.
      * 
-     * Does not clear provisioned keys.
+     * To restart communication, `join()` must be called.
+     * Neither clears the provisioned keys nor the configured pins.
      */
     void reset();
 
@@ -76,8 +77,8 @@ public:
      * @brief Configures the pins used to communicate with the LoRaWAN radio chip.
      * 
      * 
-     * The SPI bus must be first configured using spi_bus_initialize(). Then it is passed as the first parameter.
-     * Additionally, 'gpio_install_isr_service()' must be called to initialize the GPIO ISR handler service.
+     * Before calling this member function, the SPI bus needs to be configured using `spi_bus_initialize()`. 
+     * Additionally, `gpio_install_isr_service()` must have been called to initialize the GPIO ISR handler service.
      * 
      * @param spi_host  The SPI bus/peripherial to use (SPI_HOST, HSPI_HOST or VSPI_HOST).
      * @param nss       The GPIO pin number connected to the radio chip's NSS pin (serving as the SPI chip select)
@@ -229,6 +230,7 @@ public:
 
     /**
      * Returns whether Adaptive Data Rate (ADR) is enabled.
+     * 
      * @return true  if enabled
      * @return false if disabled
      */
@@ -243,6 +245,21 @@ public:
      * @param enabled `true` to enable, `false` to disable
      */ 
     void setAdrEnabled(bool enabled);
+
+    /**
+     * @brief Stops all activies and shuts down the RF module and the background tasks.
+     * 
+     * To restart communication, `startup()` and `join()` must be called.
+     * Neither clears the provisioned keys nor the configured pins.
+     */
+    void shutdown();
+
+    /**
+     * @brief Restarts the background tasks and RF module.
+     * 
+     * This member function must only be called after a call to `shutdowna()`.
+     */
+    void startup();
 
 private:
     TTNMessageCallback messageCallback;

@@ -39,6 +39,7 @@ public:
     void configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1);
     void init();
     void startLMICTask();
+    void stopLMICTask();
     
     void wakeUp();
     void initCriticalSection();
@@ -84,6 +85,7 @@ private:
     SemaphoreHandle_t mutex;
     esp_timer_handle_t timer;
     int64_t nextAlarm;
+    volatile bool runBackgroundTask;
 };
 
 extern HAL_ESP32 ttn_hal;

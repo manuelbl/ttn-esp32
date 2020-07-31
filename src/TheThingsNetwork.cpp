@@ -111,10 +111,23 @@ void TheThingsNetwork::reset()
     ttn_hal.enterCriticalSection();
     LMIC_reset();
     waitingReason = eWaitingNone;
-    if (lmicEventQueue != nullptr)
-    {
-        xQueueReset(lmicEventQueue);
-    }
+    ttn_hal.leaveCriticalSection();
+}
+
+void TheThingsNetwork::shutdown()
+{
+    ttn_hal.enterCriticalSection();
+    LMIC_shutdown();
+    ttn_hal.stopLMICTask();
+    waitingReason = eWaitingNone;
+    ttn_hal.leaveCriticalSection();
+}
+
+void TheThingsNetwork::startup()
+{
+    ttn_hal.enterCriticalSection();
+    LMIC_reset();
+    ttn_hal.startLMICTask();
     ttn_hal.leaveCriticalSection();
 }
 
@@ -194,6 +207,7 @@ bool TheThingsNetwork::joinCore()
     }
 
     ttn_hal.enterCriticalSection();
+    xQueueReset(lmicEventQueue);
     waitingReason = eWaitingForJoin;
     LMIC_startJoining();
     ttn_hal.wakeUp();

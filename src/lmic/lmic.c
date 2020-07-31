@@ -295,7 +295,7 @@ ostime_t calcAirTime (rps_t rps, u1_t plen) {
 //
 
 static void setRxsyms (ostime_t rxsyms) {
-    if (rxsyms >= (1u << 10u)) {
+    if (rxsyms >= (((ostime_t)1) << 10u)) {
         LMIC.rxsyms = (1u << 10u) - 1;
     } else if (rxsyms < 0) {
         LMIC.rxsyms = 0;
@@ -721,11 +721,17 @@ static CONST_TABLE(u1_t, macCmdSize)[] = {
 };
 
 static u1_t getMacCmdSize(u1_t macCmd) {
-    if (macCmd < 2)
-        return 0;
-    if ((macCmd - 2) >= LENOF_TABLE(macCmdSize))
-        return 0;
-    return TABLE_GET_U1(macCmdSize, macCmd - 2);
+    if (macCmd >= 2) {
+        const unsigned macCmdMinus2 = macCmd - 2u;
+        if (macCmdMinus2 < LENOF_TABLE(macCmdSize)) {
+            // macCmd in table, fetch it's size.
+            return TABLE_GET_U1(macCmdSize, macCmdMinus2);
+        }
+    }
+    // macCmd too small or too large: return zero. Zero is
+    // never a legal command size, so it signals an error
+    // to the caller.
+    return 0;
 }
 
 static bit_t
@@ -883,10 +889,14 @@ scan_mac_cmds(
     uint8_t cmd;
 
     LMIC.pendMacLen = 0;
-    if (port == 0)
+    if (port == 0) {
+        // port zero: mac data is in the normal payload, and there can't be
+        // piggyback mac data.
         LMIC.pendMacPiggyback = 0;
-    else
+    } else {
+        // port is either -1 (no port) or non-zero (piggyback): treat as piggyback.
         LMIC.pendMacPiggyback = 1;
+    }
 
     while( oidx < olen ) {
         bit_t response_fit;
@@ -1855,7 +1865,8 @@ static bit_t buildDataFrame (void) {
     // highest importance are the ones in the pendMac buffer.
     int  end = OFF_DAT_OPTS;
 
-    if (LMIC.pendTxPort != 0 && LMIC.pendMacPiggyback && LMIC.pendMacLen != 0) {
+    // Send piggyback data if: !txdata or txport != 0
+    if ((! txdata || LMIC.pendTxPort != 0) && LMIC.pendMacPiggyback && LMIC.pendMacLen != 0) {
         os_copyMem(LMIC.frame + end, LMIC.pendMacData, LMIC.pendMacLen);
         end += LMIC.pendMacLen;
     }
@@ -2780,6 +2791,11 @@ void LMIC_reset (void) {
     LMIC.adrEnabled   =  FCT_ADREN;
     resetJoinParams();
     LMIC.rxDelay      =  DELAY_DNW1;
+    // LMIC.pendMacLen  =  0;
+    // LMIC.pendMacPiggyback = 0;
+    // LMIC.dn2Ans       = 0;
+    // LMIC.macDlChannelAns = 0;
+    // LMIC.macRxTimingSetupAns = 0;
 #if !defined(DISABLE_PING)
     LMIC.ping.freq    =  FREQ_PING; // defaults for ping
     LMIC.ping.dr      =  DR_PING;   // ditto
@@ -3080,6 +3096,8 @@ int LMIC_getNetworkTimeReference(lmic_time_reference_t *pReference) {
         pReference->tNetwork = LMIC.netDeviceTime;
         return 1;
     }
+#else
+    LMIC_API_PARAMETER(pReference);
 #endif // LMIC_ENABLE_DeviceTimeReq
     return 0;
 }

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2014-2016 IBM Corporation.
  * Copyright (c) 2016 Matthijs Kooijman.
- * Copyright (c) 2016-2019 MCCI Corporation.
+ * Copyright (c) 2016-2020 MCCI Corporation.
  * All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -105,7 +105,7 @@ extern "C"{
 #define ARDUINO_LMIC_VERSION_CALC(major, minor, patch, local)	\
 	((((major)*UINT32_C(1)) << 24) | (((minor)*UINT32_C(1)) << 16) | (((patch)*UINT32_C(1)) << 8) | (((local)*UINT32_C(1)) << 0))
 
-#define	ARDUINO_LMIC_VERSION	ARDUINO_LMIC_VERSION_CALC(3, 0, 99, 10)	/* v3.0.99.10 */
+#define	ARDUINO_LMIC_VERSION	ARDUINO_LMIC_VERSION_CALC(3, 2, 0, 0)	/* v3.2.0 */
 
 #define	ARDUINO_LMIC_VERSION_GET_MAJOR(v)	\
 	((((v)*UINT32_C(1)) >> 24u) & 0xFFu)
@@ -729,5 +729,8 @@ DECL_ON_LMIC_EVENT;
 #ifdef __cplusplus
 } // extern "C"
 #endif
+
+// names for backward compatibility
+#include "lmic_compat.h"
 
 #endif // _lmic_h_

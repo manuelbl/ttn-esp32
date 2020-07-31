@@ -155,6 +155,7 @@ uint8_t hal_getTxPowerPolicy(u1_t inputPolicy, s1_t requestedPower, u4_t frequen
 }
 
 
+
 // -----------------------------------------------------------------------------
 // SPI
 
@@ -209,6 +210,7 @@ void HAL_ESP32::spiRead(uint8_t cmd, uint8_t *buf, size_t len)
     esp_err_t err = spi_device_transmit(spiHandle, &spiTransaction);
     ESP_ERROR_CHECK(err);
 }
+
 
 // -----------------------------------------------------------------------------
 // TIME
@@ -415,6 +417,12 @@ void hal_disableIRQs()
 }
 
 void hal_enableIRQs()
+{
+    // nothing to do as interrupt handlers post message to queue
+    // and don't access any shared data structures
+}
+
+void hal_processPendingIRQs()
 {
     // nothing to do as interrupt handlers post message to queue
     // and don't access any shared data structures

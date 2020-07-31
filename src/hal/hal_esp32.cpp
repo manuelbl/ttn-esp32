@@ -123,18 +123,19 @@ void hal_pin_rst(u1_t val)
         return;
 
     if (val == 0 || val == 1)
-    { // drive pin
+    {
+        // drive pin
         gpio_set_level(ttn_hal.pinRst, val);
         gpio_set_direction(ttn_hal.pinRst, GPIO_MODE_OUTPUT);
     }
     else
     {
-#ifdef CONFIG_TTN_RADIO_RST_KEEP_ASSERTED
-      // drive up the pin because the hardware is nonstandard
+#if defined(CONFIG_TTN_RESET_STATES_ASSERTED)
+        // drive up the pin because the hardware is nonstandard
         gpio_set_level(ttn_hal.pinRst, 1);
         gpio_set_direction(ttn_hal.pinRst, GPIO_MODE_OUTPUT);
 #else
-      // keep pin floating
+        // keep pin floating
         gpio_set_level(ttn_hal.pinRst, val);
         gpio_set_direction(ttn_hal.pinRst, GPIO_MODE_INPUT);
 #endif

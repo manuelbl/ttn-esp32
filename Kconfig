@@ -55,12 +55,20 @@ config TTN_SPI_FREQ
     help
         SPI frequency to communicate between ESP32 and SX127x radio chip
 
-config TTN_RADIO_RST_KEEP_ASSERTED
-        bool "Keep RST pin asserted instead of floating"
-        default n
-        help
-          Some hardware needs RST pin to be always high for LoRa chip to function
+choice TTN_RESET
+    prompt "Reset states"
+    default TTN_RESET_STATES_FLOATING
+    help
+        Reset pin can be floating for most boards and shields.
+        A few boards/shields require the pin to be held high for operation.
 
+config TTN_RESET_STATES_FLOATING
+    bool "Toggle between low and floating"
+
+config TTN_RESET_STATES_ASSERTED
+    bool "Toggle between low and high"
+
+endchoice
 
 config TTN_BG_TASK_PRIO
     int "Background task priority"

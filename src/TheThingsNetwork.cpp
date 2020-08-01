@@ -320,6 +320,11 @@ TTNRxTxWindow TheThingsNetwork::rxTxWindow()
     return currentWindow;
 }
 
+int TheThingsNetwork::rssi()
+{
+    return LMIC.rssi;
+}
+
 
 // --- Callbacks ---
 

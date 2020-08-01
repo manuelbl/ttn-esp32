@@ -93,6 +93,7 @@ void messageReceived(const uint8_t* message, size_t length, port_t port)
     for (int i = 0; i < length; i++)
         printf(" %02x", message[i]);
     printf("\n");
+    printf("RSSI: %d dBm\n", ttn.rssi());
 }
 
 extern "C" void app_main(void)
@@ -131,6 +132,7 @@ extern "C" void app_main(void)
     {
         printf("Joined.\n");
         printAllRFSettings();
+        printf("RSSI: %d dBm\n", ttn.rssi());
         xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, nullptr);
     }
     else

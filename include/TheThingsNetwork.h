@@ -400,6 +400,15 @@ public:
      */
     TTNRFSettings rx2Settings();
 
+    /**
+     * @brief Gets the received signal strength indicator (RSSI).
+     * 
+     * RSSI is the measured signal strength of the last recevied message (incl. join responses).
+     * 
+     * @return RSSI, in dBm
+     */
+    int rssi();
+
 private:
     TTNMessageCallback messageCallback;
 

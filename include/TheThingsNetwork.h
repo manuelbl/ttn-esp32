@@ -29,11 +29,120 @@ typedef uint8_t port_t;
  */
 enum TTNResponseCode
 {
-  kTTNErrorTransmissionFailed = -1,
-  kTTNErrorUnexpected = -10,
-  kTTNSuccessfulTransmission = 1,
-  kTTNSuccessfulReceive = 2
+    kTTNErrorTransmissionFailed = -1,
+    kTTNErrorUnexpected = -10,
+    kTTNSuccessfulTransmission = 1,
+    kTTNSuccessfulReceive = 2
 };
+
+
+/**
+ * @brief RX/TX window
+ */
+enum TTNRxTxWindow
+{
+    /**
+     * @brief Outside RX/TX window
+     */
+    kTTNIdleWindow = 0,
+    /**
+     * @brief Transmission window (up to RX1 window)
+     */
+    kTTNTxWindow = 1,
+    /**
+     * @brief Reception window 1 (up to RX2 window)
+     */
+    kTTNRx1Window = 2,
+    /**
+     * @brief Reception window 2
+     */
+    kTTNRx2Window = 3
+};
+
+
+/**
+ * @brief Spreading Factor
+ */
+enum TTNSpreadingFactor
+{
+    /**
+     * @brief Unused / undefined spreading factor
+     */
+    kTTNSFNone = 0,
+    /**
+     * @brief Frequency Shift Keying (FSK)
+     */
+    kTTNFSK = 1,
+    /**
+     * @brief Spreading Factor 7 (SF7)
+     */
+    kTTNSF7 = 2,
+    /**
+     * @brief Spreading Factor 8 (SF8)
+     */
+    kTTNSF8 = 3,
+    /**
+     * @brief Spreading Factor 9 (SF9)
+     */
+    kTTNSF9 = 4,
+    /**
+     * @brief Spreading Factor 10 (SF10)
+     */
+    kTTNSF10 = 5,
+    /**
+     * @brief Spreading Factor 11 (SF11)
+     */
+    kTTNSF11 = 6,
+    /**
+     * @brief Spreading Factor 12 (SF12)
+     */
+    kTTNSF12 = 7
+};
+
+
+/**
+ * @brief Bandwidth
+ */
+enum TTNBandwidth
+{
+    /**
+     * @brief Undefined/unused bandwidth
+     */
+    kTTNBWNone = 0,
+    /**
+     * @brief Bandwidth of 125 kHz
+     */
+    kTTNBW125 = 1,
+    /**
+     * @brief Bandwidth of 250 kHz
+     */
+    kTTNBW250 = 2,
+    /**
+     * @brief Bandwidth of 500 kHz
+     */
+    kTTNBW500 = 3
+};
+
+
+/**
+ * @brief RF settings for TX or RX
+ */
+struct TTNRFSettings
+{
+    /**
+     * @brief Spreading Factor (SF)
+     */
+    TTNSpreadingFactor spreadingFactor;
+    /**
+     * @brief Bandwidth (BW)
+     */
+    TTNBandwidth bandwidth;
+    /**
+     * @brief Frequency, in Hz
+     */
+    uint32_t frequency;
+};
+
 
 /**
  * @brief Callback for recieved messages
@@ -200,7 +309,7 @@ public:
      * parameters. The values are only valid during the duration of the
      * callback. So they must be immediately processed or copied.
      * 
-     * Messages are received as a result of 'transmitMessage' or 'poll'. The callback is called
+     * Messages are received as a result of 'transmitMessage'. The callback is called
      * in the task that called any of these functions and it occurs before these functions
      * return control to the caller.
      * 
@@ -260,6 +369,36 @@ public:
      * This member function must only be called after a call to `shutdowna()`.
      */
     void startup();
+
+    /**
+     * @brief Gets currentRX/TX window
+     * @return window
+     */
+    TTNRxTxWindow rxTxWindow();
+
+    /**
+     * @brief Gets the RF settings for the specified window
+     * @param window RX/TX windows (valid values are `kTTNTxWindow`, `kTTNRx1Window` and `kTTNRx2Window`)
+     */
+    TTNRFSettings getRFSettings(TTNRxTxWindow window);
+
+    /**
+     * @brief Gets the RF settings of the last (or ongoing) transmission.
+     * @return RF settings
+     */
+    TTNRFSettings txSettings();
+
+    /**
+     * @brief Gets the RF settings of the last (or ongoing) reception of RX window 1.
+     * @return RF settings
+     */
+    TTNRFSettings rx1Settings();
+
+    /**
+     * @brief Gets the RF settings of the last (or ongoing) reception of RX window 2.
+     * @return RF settings
+     */
+    TTNRFSettings rx2Settings();
 
 private:
     TTNMessageCallback messageCallback;

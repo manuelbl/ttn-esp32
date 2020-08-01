@@ -63,10 +63,14 @@ static TTNProvisioning provisioning;
 #if LMIC_ENABLE_event_logging
 static TTNLogging* logging;
 #endif
+static TTNRFSettings lastRfSettings[4];
+static TTNRxTxWindow currentWindow;
 
 static void eventCallback(void* userData, ev_t event);
 static void messageReceivedCallback(void *userData, uint8_t port, const uint8_t *message, size_t messageSize);
 static void messageTransmittedCallback(void *userData, int success);
+static void saveRFSettings(TTNRFSettings& rfSettings);
+static void clearRFSettings(TTNRFSettings& rfSettings);
 
 
 TheThingsNetwork::TheThingsNetwork()
@@ -110,6 +114,7 @@ void TheThingsNetwork::reset()
 {
     ttn_hal.enterCriticalSection();
     LMIC_reset();
+    LMIC_setClockError(MAX_CLOCK_ERROR * 4 / 100);
     waitingReason = eWaitingNone;
     ttn_hal.leaveCriticalSection();
 }
@@ -289,6 +294,32 @@ void TheThingsNetwork::setAdrEnabled(bool enabled)
     LMIC_setAdrMode(enabled);
 }
 
+TTNRFSettings TheThingsNetwork::getRFSettings(TTNRxTxWindow window)
+{
+    int index = static_cast<int>(window) & 0x03;
+    return lastRfSettings[index];
+}
+
+TTNRFSettings TheThingsNetwork::txSettings()
+{
+    return lastRfSettings[static_cast<int>(kTTNTxWindow)];
+}
+
+TTNRFSettings TheThingsNetwork::rx1Settings()
+{
+    return lastRfSettings[static_cast<int>(kTTNRx1Window)];
+}
+
+TTNRFSettings TheThingsNetwork::rx2Settings()
+{
+    return lastRfSettings[static_cast<int>(kTTNRx2Window)];
+}
+
+TTNRxTxWindow TheThingsNetwork::rxTxWindow()
+{
+    return currentWindow;
+}
+
 
 // --- Callbacks ---
 
@@ -300,6 +331,34 @@ const char *eventNames[] = { LMIC_EVENT_NAME_TABLE__INIT };
 // Called by LMIC when an LMIC event (join, join failed, reset etc.) occurs
 void eventCallback(void* userData, ev_t event)
 {
+    // update monitoring information
+    switch(event)
+    {
+        case EV_TXSTART:
+            currentWindow = kTTNTxWindow;
+            saveRFSettings(lastRfSettings[static_cast<int>(kTTNTxWindow)]);
+            clearRFSettings(lastRfSettings[static_cast<int>(kTTNRx1Window)]);
+            clearRFSettings(lastRfSettings[static_cast<int>(kTTNRx2Window)]);
+            break;
+
+        case EV_RXSTART:
+            if (currentWindow != kTTNRx1Window)
+            {
+                currentWindow = kTTNRx1Window;
+                saveRFSettings(lastRfSettings[static_cast<int>(kTTNRx1Window)]);
+            }
+            else
+            {
+                currentWindow = kTTNRx2Window;
+                saveRFSettings(lastRfSettings[static_cast<int>(kTTNRx2Window)]);
+            }
+            break;
+
+        default:
+            currentWindow = kTTNIdleWindow;
+            break;
+    };
+
 #if LMIC_ENABLE_event_logging
     logging->logEvent(event, eventNames[event], 0);
 #elif CONFIG_LOG_DEFAULT_LEVEL >= 3
@@ -344,4 +403,20 @@ void messageTransmittedCallback(void *userData, int success)
     waitingReason = eWaitingNone;
     TTNLmicEvent result(success ? eEvtTransmissionCompleted : eEvtTransmissionFailed);
     xQueueSend(lmicEventQueue, &result, pdMS_TO_TICKS(100));
+}
+
+
+// --- Helpers
+
+
+void saveRFSettings(TTNRFSettings& rfSettings)
+{
+    rfSettings.spreadingFactor = static_cast<TTNSpreadingFactor>(getSf(LMIC.rps) + 1);
+    rfSettings.bandwidth = static_cast<TTNBandwidth>(getBw(LMIC.rps) + 1);
+    rfSettings.frequency = LMIC.freq;
+}
+
+void clearRFSettings(TTNRFSettings& rfSettings)
+{
+    memset(&rfSettings, 0, sizeof(rfSettings));
 }

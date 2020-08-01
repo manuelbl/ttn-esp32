@@ -46,7 +46,7 @@ void sendMessages(void* pvParameter)
         TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
         printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
-        vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
+        vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
     }
 }
 

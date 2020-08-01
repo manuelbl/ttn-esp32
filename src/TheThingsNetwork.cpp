@@ -169,7 +169,7 @@ void TheThingsNetwork::waitForProvisioning()
     }
 
     while (!provisioning.haveKeys())
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
     ESP_LOGI(TAG, "Device successfully provisioned");
 #else

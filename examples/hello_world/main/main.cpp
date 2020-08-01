@@ -7,12 +7,12 @@
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
- * Sample program showing how to send a test message every 30 second.
+ * Sample program showing how to send and receive messages.
  *******************************************************************************/
 
 #include "freertos/FreeRTOS.h"
-#include "driver/gpio.h"
 #include "esp_event.h"
+#include "driver/gpio.h"
 #include "nvs_flash.h"
 
 #include "TheThingsNetwork.h"
@@ -37,9 +37,9 @@ const char *appKey = "????????????????????????????????";
 #define TTN_PIN_SPI_MISO  19
 #define TTN_PIN_NSS       18
 #define TTN_PIN_RXTX      TTN_NOT_CONNECTED
-#define TTN_PIN_RST       TTN_NOT_CONNECTED
+#define TTN_PIN_RST       14
 #define TTN_PIN_DIO0      26
-#define TTN_PIN_DIO1      33
+#define TTN_PIN_DIO1      35
 
 static TheThingsNetwork ttn;
 
@@ -54,8 +54,16 @@ void sendMessages(void* pvParameter)
         TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
         printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
-        vTaskDelay(TX_INTERVAL * 1000 / portTICK_PERIOD_MS);
+        vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
     }
+}
+
+void messageReceived(const uint8_t* message, size_t length, port_t port)
+{
+    printf("Message of %d bytes received on port %d:", length, port);
+    for (int i = 0; i < length; i++)
+        printf(" %02x", message[i]);
+    printf("\n");
 }
 
 extern "C" void app_main(void)
@@ -64,7 +72,7 @@ extern "C" void app_main(void)
     // Initialize the GPIO ISR handler service
     err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
     ESP_ERROR_CHECK(err);
-
+    
     // Initialize the NVS (non-volatile storage) for saving and restoring the keys
     err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
@@ -85,6 +93,9 @@ extern "C" void app_main(void)
 
     // The below line can be commented after the first run as the data is saved in NVS
     ttn.provision(devEui, appEui, appKey);
+
+    // Register callback for received messages
+    ttn.onMessage(messageReceived);
 
     printf("Joining...\n");
     if (ttn.join())

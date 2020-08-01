@@ -18,8 +18,7 @@
     "export": {
         "include": [
             "include",
-            "src",
-            "esp_idf_lmic_config.h"
+            "src"
         ]
     },
     "frameworks": "espidf",

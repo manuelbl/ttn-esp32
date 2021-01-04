@@ -294,6 +294,16 @@ void TheThingsNetwork::setAdrEnabled(bool enabled)
     LMIC_setAdrMode(enabled);
 }
 
+void TheThingsNetwork::selectSubBand(uint8_t subband)
+{
+    LMIC_selectSubBand(subband);
+}
+
+void TheThingsNetwork::setDrTxPow(uint8_t dr, uint8_t txpow)
+{
+    LMIC_setDrTxpow(dr, txpow);
+}
+
 TTNRFSettings TheThingsNetwork::getRFSettings(TTNRxTxWindow window)
 {
     int index = static_cast<int>(window) & 0x03;

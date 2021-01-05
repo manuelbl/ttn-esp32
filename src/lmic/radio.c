@@ -382,6 +382,7 @@ static void writeReg (u1_t addr, u1_t data ) {
     hal_spi_write(addr | 0x80, &data, 1);
 }
 
+// ttn-esp32: it's safer if buffer is static
 static u1_t reg_value_buf[1];
 
 static u1_t readReg (u1_t addr) {

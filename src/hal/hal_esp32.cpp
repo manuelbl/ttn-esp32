@@ -346,7 +346,7 @@ bool HAL_ESP32::wait(WaitKind waitKind)
 }
 
 // Gets current time in LMIC ticks
-u4_t hal_ticks()
+u4_t IRAM_ATTR hal_ticks()
 {
     // LMIC tick unit: 16µs
     // esp_timer unit: 1µs

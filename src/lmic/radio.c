@@ -382,10 +382,11 @@ static void writeReg (u1_t addr, u1_t data ) {
     hal_spi_write(addr | 0x80, &data, 1);
 }
 
+static u1_t reg_value_buf[1];
+
 static u1_t readReg (u1_t addr) {
-    u1_t buf[1];
-    hal_spi_read(addr & 0x7f, buf, 1);
-    return buf[0];
+    hal_spi_read(addr & 0x7f, reg_value_buf, 1);
+    return reg_value_buf[0];
 }
 
 static void writeBuf (u1_t addr, xref2u1_t buf, u1_t len) {

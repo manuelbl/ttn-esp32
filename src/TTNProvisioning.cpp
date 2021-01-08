@@ -227,6 +227,8 @@ void TTNProvisioning::processLine()
             line_buf[24] = 0;
             line_buf[41] = 0;
             is_ok = decodeKeys(line_buf + 8, line_buf + 25, line_buf + 42);
+            if (is_ok)
+                is_ok = saveKeys();
             reset_needed = is_ok;
         }
     }
@@ -237,6 +239,8 @@ void TTNProvisioning::processLine()
         {
             line_buf[25] = 0;
             is_ok = fromMAC(line_buf + 9, line_buf + 26);
+            if (is_ok)
+                is_ok = saveKeys();
             reset_needed = is_ok;
         }
     }
@@ -388,9 +392,6 @@ bool TTNProvisioning::decode(bool incl_dev_eui, const char *dev_eui, const char 
         && !isAllZeros(global_app_eui, sizeof(global_app_eui))
         && !isAllZeros(global_app_key, sizeof(global_app_key));
 
-    if (!saveKeys())
-        return false;
-    
     return true;
 }
 

@@ -347,6 +347,26 @@ public:
     void setAdrEnabled(bool enabled);
 
     /**
+     * @brief Select a frequency sub-band to work with 8 channel gateways.
+     *
+     * Selecting a subband restricts LMIC to working with a defined set of 8 channels only.
+     * Band 0 = Channels 0-7, Band 1 = Channels 8-15 etc etc.
+     *
+     * @param subband 0 - 7
+     */
+    void selectSubBand(uint8_t subband);
+
+    /**
+     * @brief Select Data Rate and Transmit Power
+     *
+     * Set a specific Data Rate (DR) and TX Power when not using ADR Mode.
+     *
+     * @param dr Data Rate
+     * @param txpow Transmit Power
+     */
+    void setDrTxPow(uint8_t dr, uint8_t txpow);
+
+    /**
      * @brief Stops all activies and shuts down the RF module and the background tasks.
      * 
      * To restart communication, startup() and join() must be called.

@@ -18,7 +18,7 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "lmic/lmic.h"
-//#include "hal/hal_esp32.h"
+#include "hal/hal_esp32.h"
 
 #if defined(TTN_HAS_AT_COMMANDS)
 #define UART_NUM CONFIG_TTN_PROVISION_UART_NUM
@@ -305,10 +305,9 @@ void process_line(void)
 
     if (reset_needed)
     {
-        // TODO
-        // ttn_hal.enterCriticalSection();
+        hal_esp32_enter_critical_section();
         LMIC_reset();
-        // ttn_hal.leaveCriticalSection();
+        hal_esp32_leave_critical_section();
         LMIC.client.eventCb(LMIC.client.eventUserData, EV_RESET);
     }
 

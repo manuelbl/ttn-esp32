@@ -82,7 +82,7 @@ TheThingsNetwork::TheThingsNetwork()
 
     ASSERT(ttnInstance == nullptr);
     ttnInstance = this;
-    ttn_hal.initCriticalSection();
+    hal_esp32_init_critical_section();
 }
 
 TheThingsNetwork::~TheThingsNetwork()
@@ -92,7 +92,7 @@ TheThingsNetwork::~TheThingsNetwork()
 
 void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1)
 {
-    ttn_hal.configurePins(spi_host, nss, rxtx, rst, dio0, dio1);
+    hal_esp32_configure_pins(spi_host, nss, rxtx, rst, dio0, dio1);
 
 #if LMIC_ENABLE_event_logging
     logging = TTNLogging::initInstance();
@@ -106,33 +106,33 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
 
     lmicEventQueue = xQueueCreate(4, sizeof(TTNLmicEvent));
     ASSERT(lmicEventQueue != nullptr);
-    ttn_hal.startLMICTask();
+    hal_esp32_start_lmic_task();
 }
 
 void TheThingsNetwork::reset()
 {
-    ttn_hal.enterCriticalSection();
+    hal_esp32_enter_critical_section();
     LMIC_reset();
     LMIC_setClockError(MAX_CLOCK_ERROR * 4 / 100);
     waitingReason = eWaitingNone;
-    ttn_hal.leaveCriticalSection();
+    hal_esp32_leave_critical_section();
 }
 
 void TheThingsNetwork::shutdown()
 {
-    ttn_hal.enterCriticalSection();
+    hal_esp32_enter_critical_section();
     LMIC_shutdown();
-    ttn_hal.stopLMICTask();
+    hal_esp32_stop_lmic_task();
     waitingReason = eWaitingNone;
-    ttn_hal.leaveCriticalSection();
+    hal_esp32_leave_critical_section();
 }
 
 void TheThingsNetwork::startup()
 {
-    ttn_hal.enterCriticalSection();
+    hal_esp32_enter_critical_section();
     LMIC_reset();
-    ttn_hal.startLMICTask();
-    ttn_hal.leaveCriticalSection();
+    hal_esp32_start_lmic_task();
+    hal_esp32_leave_critical_section();
 }
 
 bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const char *appKey)
@@ -210,12 +210,12 @@ bool TheThingsNetwork::joinCore()
         return false;
     }
 
-    ttn_hal.enterCriticalSection();
+    hal_esp32_enter_critical_section();
     xQueueReset(lmicEventQueue);
     waitingReason = eWaitingForJoin;
     LMIC_startJoining();
-    ttn_hal.wakeUp();
-    ttn_hal.leaveCriticalSection();
+    hal_esp32_wake_up();
+    hal_esp32_leave_critical_section();
 
     TTNLmicEvent event;
     xQueueReceive(lmicEventQueue, &event, portMAX_DELAY);
@@ -224,10 +224,10 @@ bool TheThingsNetwork::joinCore()
 
 TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t length, port_t port, bool confirm)
 {
-    ttn_hal.enterCriticalSection();
+    hal_esp32_enter_critical_section();
     if (waitingReason != eWaitingNone || (LMIC.opmode & OP_TXRXPEND) != 0)
     {
-        ttn_hal.leaveCriticalSection();
+        hal_esp32_leave_critical_section();
         return kTTNErrorTransmissionFailed;
     }
 
@@ -235,8 +235,8 @@ TTNResponseCode TheThingsNetwork::transmitMessage(const uint8_t *payload, size_t
     LMIC.client.txMessageCb = messageTransmittedCallback;
     LMIC.client.txMessageUserData = nullptr;
     LMIC_setTxData2(port, (xref2u1_t)payload, length, confirm);
-    ttn_hal.wakeUp();
-    ttn_hal.leaveCriticalSection();
+    hal_esp32_wake_up();
+    hal_esp32_leave_critical_section();
 
     while (true)
     {
@@ -280,7 +280,7 @@ bool TheThingsNetwork::isProvisioned()
 
 void TheThingsNetwork::setRSSICal(int8_t rssiCal)
 {
-    ttn_hal.rssiCal = rssiCal;
+    hal_esp32_set_rssi_cal(rssiCal);
 }
 
 bool TheThingsNetwork::adrEnabled()

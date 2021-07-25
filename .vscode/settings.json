@@ -6,6 +6,10 @@
         "oslmic.h": "c",
         "hal_esp32.h": "c",
         "esp_log.h": "c",
-        "nvs_flash.h": "c"
+        "nvs_flash.h": "c",
+        "__config": "c",
+        "__nullptr": "c",
+        "stdint.h": "c",
+        "*.ipp": "c"
     }
 }

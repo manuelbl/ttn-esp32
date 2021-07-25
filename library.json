@@ -13,7 +13,7 @@
         "url": "https://github.com/manuelbl/ttn-esp32.git",
         "branch": "master"
     },
-    "version": "3.3.0",
+    "version": "4.0.0-pre",
     "license": "MIT License",
     "export": {
         "include": [

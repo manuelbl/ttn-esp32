@@ -66,6 +66,11 @@ enum { BAND_MILLI = 0, BAND_CENTI = 1, BAND_DECI = 2, BAND_AUX = 3 };
 // there's a CFList on joins for EU-like plans
 #define LMICbandplan_hasJoinCFlist()    (1)
 
+/// \brief process CFLists from JoinAccept for EU-like regions
+void LMICeulike_processJoinAcceptCFList(void);
+/// \brief by default, EU-like plans use LMICeulike_processJoinAcceptCFList
+#define LMICbandplan_processJoinAcceptCFList    LMICeulike_processJoinAcceptCFList
+
 #define LMICbandplan_advanceBeaconChannel()     \
         do { /* nothing */ } while (0)
 

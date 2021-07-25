@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,14 @@ CONST_TABLE(u1_t, _DR2RPS_CRC)[] = {
         (u1_t)MAKERPS(FSK,  BW125, CR_4_5, 0, 0),       // [7]
         ILLEGAL_RPS
 };
+
+bit_t
+LMICas923_validDR(dr_t dr) {
+        // use subtract here to avoid overflow
+        if (dr >= LENOF_TABLE(_DR2RPS_CRC) - 2)
+                return 0;
+        return TABLE_GET_U1(_DR2RPS_CRC, dr+1)!=ILLEGAL_RPS;
+}
 
 // see table in 2.7.6 -- this assumes UplinkDwellTime = 0.
 static CONST_TABLE(u1_t, maxFrameLens_dwell0)[] = {
@@ -226,17 +234,29 @@ bit_t LMIC_setupBand(u1_t bandidx, s1_t txpow, u2_t txcap) {
         return 1;
 }
 
+
+///
+/// \brief query number of default channels.
+///
+u1_t LMIC_queryNumDefaultChannels() {
+        return NUM_DEFAULT_CHANNELS;
+}
+
+///
+/// \brief LMIC_setupChannel for EU 868
+///
+/// \note according to LoRaWAN 1.3 section 5.6, "the acceptable range
+///     for **ChIndex** is N to 16", where N is our \c NUM_DEFAULT_CHANNELS.
+///     This routine is used internally for MAC commands, so we enforce
+///     this for the extenal API as well.
+///
 bit_t LMIC_setupChannel(u1_t chidx, u4_t freq, u2_t drmap, s1_t band) {
         // zero the band bits in freq, just in case.
         freq &= ~3;
 
         if (chidx < NUM_DEFAULT_CHANNELS) {
-                // can't disable a default channel.
-                if (freq == 0)
-                        return 0;
-                // can't change a default channel.
-                else if (freq != (LMIC.channelFreq[chidx] & ~3))
-                        return 0;
+                // can't do anything to a default channel.
+                return 0;
         }
         bit_t fEnable = (freq != 0);
         if (chidx >= MAX_CHANNELS)
@@ -315,36 +335,109 @@ void LMICas923_setRx1Params(void) {
 	LMIC.rps = dndr2rps(LMIC.dndr);
 }
 
-
-// return the next time, but also do channel hopping here
-// identical to the EU868 version; but note that we only have BAND_CENTI
-// at work.
+///
+/// \brief change the TX channel given the desired tx time.
+///
+/// \param [in] now is the time at which we want to transmit. In fact, it's always
+///     the current time.
+///
+/// \returns the actual time at which we can transmit. \c LMIC.txChnl is set to the
+///     selected channel.
+///
+/// \details
+///     We scan all the bands, creating a mask of all enabled channels that are
+///     feasible at the earliest possible time. We then randomly choose one from
+///     that, updating the shuffle mask.
+///
+/// \note
+///     identical to the EU868 version; but note that we only have BAND_CENTI
+///     in AS923.
+///
 ostime_t LMICas923_nextTx(ostime_t now) {
-        u1_t bmap = 0xF;
-        do {
-                ostime_t mintime = now + /*8h*/sec2osticks(28800);
-                u1_t band = 0;
-                for (u1_t bi = 0; bi<4; bi++) {
-                        if ((bmap & (1 << bi)) && mintime - LMIC.bands[bi].avail > 0)
-                                mintime = LMIC.bands[band = bi].avail;
-                }
-                // Find next channel in given band
-                u1_t chnl = LMIC.bands[band].lastchnl;
-                for (u1_t ci = 0; ci<MAX_CHANNELS; ci++) {
-                        if ((chnl = (chnl + 1)) >= MAX_CHANNELS)
-                                chnl -= MAX_CHANNELS;
-                        if ((LMIC.channelMap & (1 << chnl)) != 0 &&  // channel enabled
-                                (LMIC.channelDrMap[chnl] & (1 << (LMIC.datarate & 0xF))) != 0 &&
-                                band == (LMIC.channelFreq[chnl] & 0x3)) { // in selected band
-                                LMIC.txChnl = LMIC.bands[band].lastchnl = chnl;
-                                return mintime;
-                        }
-                }
-                if ((bmap &= ~(1 << band)) == 0) {
-                        // No feasible channel  found!
-                        return mintime;
-                }
-        } while (1);
+        ostime_t mintime = now + /*8h*/sec2osticks(28800);
+        u2_t availMap;
+        u2_t feasibleMap;
+        u1_t bandMap;
+
+        // set mintime to the earliest time of all enabled channels
+        // (can't just look at bands); and for a given channel, we
+        // can't tell if we're ready till we've checked all possible
+        // avail times.
+        bandMap = 0;
+        for (u1_t chnl = 0; chnl < MAX_CHANNELS; ++chnl) {
+                u2_t chnlBit = 1 << chnl;
+
+                // none at any higher numbers?
+                if (LMIC.channelMap < chnlBit)
+                        break;
+
+                // not enabled?
+                if ((LMIC.channelMap & chnlBit) == 0)
+                        continue;
+
+                // not feasible?
+                if ((LMIC.channelDrMap[chnl] & (1 << (LMIC.datarate & 0xF))) == 0)
+                        continue;
+
+                u1_t const band = LMIC.channelFreq[chnl] & 0x3;
+                u1_t const thisBandBit = 1 << band;
+                // already considered?
+                if ((bandMap & thisBandBit) != 0)
+                        continue;
+
+                // consider this band.
+                bandMap |= thisBandBit;
+
+                // enabled, not considered, feasible: adjust the min time.
+                if ((s4_t)(mintime - LMIC.bands[band].avail) > 0)
+                        mintime = LMIC.bands[band].avail;
+        }
+
+        // make a mask of candidates available for use
+        availMap = 0;
+        feasibleMap = 0;
+        for (u1_t chnl = 0; chnl < MAX_CHANNELS; ++chnl) {
+                u2_t chnlBit = 1 << chnl;
+
+                // none at any higher numbers?
+                if (LMIC.channelMap < chnlBit)
+                        break;
+
+               // not enabled?
+                if ((LMIC.channelMap & chnlBit) == 0)
+                        continue;
+
+                // not feasible?
+                if ((LMIC.channelDrMap[chnl] & (1 << (LMIC.datarate & 0xF))) == 0)
+                        continue;
+
+                // This channel is feasible. But might not be available.
+                feasibleMap |= chnlBit;
+
+                // not available yet?
+                u1_t const band = LMIC.channelFreq[chnl] & 0x3;
+                if ((s4_t)(LMIC.bands[band].avail - mintime) > 0)
+                        continue;
+
+                // ok: this is a candidate.
+                availMap |= chnlBit;
+        }
+
+        // find the next available chennel.
+        u2_t saveShuffleMap = LMIC.channelShuffleMap;
+        int candidateCh = LMIC_findNextChannel(&LMIC.channelShuffleMap, &availMap, 1, LMIC.txChnl == 0xFF ? -1 : LMIC.txChnl);
+
+        // restore bits in the shuffleMap that were on, but might have reset
+        // if availMap was used to refresh shuffleMap. These are channels that
+        // are feasble but not yet candidates due to band saturation
+        LMIC.channelShuffleMap |= saveShuffleMap & feasibleMap & ~availMap;
+
+        if (candidateCh >= 0) {
+                // update the channel; otherwise we'll just use the
+                // most recent one.
+                LMIC.txChnl = candidateCh;
+        }
+        return mintime;
 }
 
 #if !defined(DISABLE_BEACONS)

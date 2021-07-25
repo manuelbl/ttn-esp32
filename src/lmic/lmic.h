@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2014-2016 IBM Corporation.
  * Copyright (c) 2016 Matthijs Kooijman.
- * Copyright (c) 2016-2020 MCCI Corporation.
+ * Copyright (c) 2016-2021 MCCI Corporation.
  * All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -96,7 +96,7 @@
 extern "C"{
 #endif
 
-// LMIC version -- this is ths IBM LMIC version
+// LMIC version -- this is the IBM LMIC version
 #define LMIC_VERSION_MAJOR 1
 #define LMIC_VERSION_MINOR 6
 #define LMIC_VERSION_BUILD 1468577746
@@ -105,7 +105,8 @@ extern "C"{
 #define ARDUINO_LMIC_VERSION_CALC(major, minor, patch, local)	\
 	((((major)*UINT32_C(1)) << 24) | (((minor)*UINT32_C(1)) << 16) | (((patch)*UINT32_C(1)) << 8) | (((local)*UINT32_C(1)) << 0))
 
-#define	ARDUINO_LMIC_VERSION	ARDUINO_LMIC_VERSION_CALC(3, 3, 0, 0)	/* v3.3.0 */
+#define	ARDUINO_LMIC_VERSION    \
+    ARDUINO_LMIC_VERSION_CALC(4, 0, 1, 1)  /* 4.0.1-pre1 */
 
 #define	ARDUINO_LMIC_VERSION_GET_MAJOR(v)	\
 	((((v)*UINT32_C(1)) >> 24u) & 0xFFu)
@@ -119,10 +120,35 @@ extern "C"{
 #define	ARDUINO_LMIC_VERSION_GET_LOCAL(v)	\
 	((v) & 0xFFu)
 
+/// \brief convert a semantic version to an ordinal integer.
+#define ARDUINO_LMIC_VERSION_TO_ORDINAL(v)  \
+        (((v) & 0xFFFFFF00u) | (((v) - 1) & 0xFFu))
+
+/// \brief compare two semantic versions
+/// \return \c true if \p a is less than \p b (as a semantic version).
+#define ARDUINO_LMIC_VERSION_COMPARE_LT(a, b)   \
+        (ARDUINO_LMIC_VERSION_TO_ORDINAL(a) < ARDUINO_LMIC_VERSION_TO_ORDINAL(b))
+
+/// \brief compare two semantic versions
+/// \return \c true if \p a is less than or equal to \p b (as a semantic version).
+#define ARDUINO_LMIC_VERSION_COMPARE_LE(a, b)   \
+        (ARDUINO_LMIC_VERSION_TO_ORDINAL(a) <= ARDUINO_LMIC_VERSION_TO_ORDINAL(b))
+
+/// \brief compare two semantic versions
+/// \return \c true if \p a is greater than \p b (as a semantic version).
+#define ARDUINO_LMIC_VERSION_COMPARE_GT(a, b)   \
+        (ARDUINO_LMIC_VERSION_TO_ORDINAL(a) > ARDUINO_LMIC_VERSION_TO_ORDINAL(b))
+
+/// \brief compare two semantic versions
+/// \return \c true if \p a is greater than or equal to \p b (as a semantic version).
+#define ARDUINO_LMIC_VERSION_COMPARE_GE(a, b)   \
+        (ARDUINO_LMIC_VERSION_TO_ORDINAL(a) >= ARDUINO_LMIC_VERSION_TO_ORDINAL(b))
+
+
 //! Only For Antenna Tuning Tests !
 //#define CFG_TxContinuousMode 1
 
-// since this was annouunced as the API variable, we keep it. But it's not used,
+// since this was announced as the API variable, we keep it. But it's not used,
 // MAX_LEN_FRAME is what the code uses.
 enum { MAX_FRAME_LEN      =  MAX_LEN_FRAME };   //!< Library cap on max frame length
 
@@ -131,10 +157,10 @@ enum { MAX_MISSED_BCNS    =  (2 * 60 * 60 + 127) / 128 };   //!< threshold for d
                                      // note that we need 100 ppm timing accuracy for
                                      // this, to keep the timing error to +/- 700ms.
 enum { MAX_RXSYMS         = 350 };   // Stop tracking beacon if sync error grows beyond this. A 0.4% clock error
-                                     // at SF9.125k means 512 ms; one sybol is 4.096 ms,
+                                     // at SF9.125k means 512 ms; one symbol is 4.096 ms,
                                      // so this needs to be at least 125 for an STM32L0.
                                      // And for 100ppm clocks and 2 hours of beacon misses,
-                                     // this needs to accomodate 1.4 seconds of error at
+                                     // this needs to accommodate 1.4 seconds of error at
                                      // 4.096 ms/sym or at least 342 symbols.
 
 enum { LINK_CHECK_CONT    =  0  ,    // continue with this after reported dead link
@@ -161,7 +187,7 @@ struct band_t {
     u2_t     txcap;     // duty cycle limitation: 1/txcap
     s1_t     txpow;     // maximum TX power
     u1_t     lastchnl;  // last used channel
-    ostime_t avail;     // channel is blocked until this time
+    ostime_t avail;     // band is blocked until this time
 };
 TYPEDEF_xref2band_t; //!< \internal
 
@@ -172,10 +198,8 @@ struct lmic_saved_adr_state_s {
 
 #elif CFG_LMIC_US_like  // US915 spectrum =================================================
 
-enum { MAX_XCHANNELS = 2 };      // extra channels in RAM, channels 0-71 are immutable
-
 struct lmic_saved_adr_state_s {
-    u2_t        channelMap[(72+MAX_XCHANNELS+15)/16];  // enabled bits
+    u2_t        channelMap[(72+15)/16];  // enabled bits
     u2_t        activeChannels125khz;
     u2_t        activeChannels500khz;
 };
@@ -531,10 +555,10 @@ struct lmic_t {
     // bit map of enabled datarates for each channel
     u2_t        channelDrMap[MAX_CHANNELS];
     u2_t        channelMap;
+    u2_t        channelShuffleMap;
 #elif CFG_LMIC_US_like
-    u4_t        xchFreq[MAX_XCHANNELS];    // extra channel frequencies (if device is behind a repeater)
-    u2_t        xchDrMap[MAX_XCHANNELS];   // extra channel datarate ranges  ---XXX: ditto
-    u2_t        channelMap[(72+MAX_XCHANNELS+15)/16];  // enabled bits
+    u2_t        channelMap[(72+15)/16];  // enabled bits
+    u2_t        channelShuffleMap[(72+15)/16];  // enabled bits
     u2_t        activeChannels125khz;
     u2_t        activeChannels500khz;
 #endif
@@ -569,7 +593,10 @@ struct lmic_t {
 
     u1_t        txChnl;          // channel for next TX
     u1_t        globalDutyRate;  // max rate: 1/2^k
-
+#if CFG_LMIC_US_like
+    u1_t        txChnl_125kHz;  ///< during joins on 500 kHz, the 125 kHz channel
+                                ///  that was last used.
+#endif
     u1_t        upRepeat;     // configured up repeat
     s1_t        adrTxPow;     // ADR adjusted TX power
     u1_t        datarate;     // current data rate
@@ -659,6 +686,12 @@ bit_t LMIC_enableChannel(u1_t channel);
 bit_t LMIC_disableSubBand(u1_t band);
 bit_t LMIC_selectSubBand(u1_t band);
 
+//! \brief get the number of (fixed) default channels before the programmable channels.
+u1_t  LMIC_queryNumDefaultChannels(void);
+
+//! \brief check whether the LMIC is ready for a transmit packet
+bit_t LMIC_queryTxReady(void);
+
 void  LMIC_setDrTxpow   (dr_t dr, s1_t txpow);  // set default/start DR/txpow
 void  LMIC_setAdrMode   (bit_t enabled);        // set ADR mode (if mobile turn off)
 
@@ -704,6 +737,8 @@ int LMIC_getNetworkTimeReference(lmic_time_reference_t *pReference);
 
 int LMIC_registerRxMessageCb(lmic_rxmessage_cb_t *pRxMessageCb, void *pUserData);
 int LMIC_registerEventCb(lmic_event_cb_t *pEventCb, void *pUserData);
+
+int LMIC_findNextChannel(uint16_t *, const uint16_t *, uint16_t, int);
 
 // APIs for client half of compliance.
 typedef u1_t lmic_compliance_rx_action_t;

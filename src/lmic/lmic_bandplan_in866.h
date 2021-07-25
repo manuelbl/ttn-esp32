@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -80,5 +80,9 @@ void LMICin866_initDefaultChannels(bit_t join);
 
 void LMICin866_setRx1Params(void);
 #define LMICbandplan_setRx1Params()     LMICin866_setRx1Params()
+
+#undef LMICbandplan_validDR
+bit_t LMICin866_validDR(dr_t dr);
+#define LMICbandplan_validDR(dr)        LMICin866_validDR(dr)
 
 #endif // _lmic_bandplan_in866_h_

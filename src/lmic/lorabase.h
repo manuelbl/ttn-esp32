@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2014-2016 IBM Corporation.
- * Copyritght (c) 2017 MCCI Corporation.
+ * Copyright (c) 2017-2021 MCCI Corporation.
  * All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -445,6 +445,13 @@ enum {
     LEN_JA          = 17,
     LEN_JAEXT       = 17+16
 };
+
+enum {
+    // JoinAccept CFList types
+    LORAWAN_JoinAccept_CFListType_FREQUENCIES = 0,  ///< the CFList contains 5 frequencies
+    LORAWAN_JoinAccept_CFListType_MASK = 1,         ///< the CFList contains channel-mask data
+};
+
 enum {
     // Data frame format
     OFF_DAT_HDR      = 0,
@@ -638,17 +645,8 @@ static inline rps_t makeRps (sf_t sf, bw_t bw, cr_t cr, int ih, int nocrc) {
 #define MAKERPS(sf,bw,cr,ih,nocrc) ((rps_t)((sf) | ((bw)<<3) | ((cr)<<5) | ((nocrc)?(1<<7):0) | ((ih&0xFF)<<8)))
 // Two frames with params r1/r2 would interfere on air: same SFx + BWx
 static inline int sameSfBw(rps_t r1, rps_t r2) { return ((r1^r2)&0x1F) == 0; }
-
-extern CONST_TABLE(u1_t, _DR2RPS_CRC)[];
-static inline rps_t updr2rps (dr_t dr) { return (rps_t)TABLE_GET_U1(_DR2RPS_CRC, dr+1); }
-static inline rps_t dndr2rps (dr_t dr) { return setNocrc(updr2rps(dr),1); }
 static inline int isFasterDR (dr_t dr1, dr_t dr2) { return dr1 > dr2; }
 static inline int isSlowerDR (dr_t dr1, dr_t dr2) { return dr1 < dr2; }
-static inline dr_t  incDR    (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr+2)==ILLEGAL_RPS ? dr : (dr_t)(dr+1); } // increase data rate
-static inline dr_t  decDR    (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr  )==ILLEGAL_RPS ? dr : (dr_t)(dr-1); } // decrease data rate
-static inline dr_t  assertDR (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr+1)==ILLEGAL_RPS ? (dr_t)DR_DFLTMIN : dr; }   // force into a valid DR
-static inline bit_t validDR  (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr+1)!=ILLEGAL_RPS; } // in range
-static inline dr_t  lowerDR  (dr_t dr, u1_t n) { while(n--){dr=decDR(dr);} return dr; } // decrease data rate by n steps
 
 //
 // BEG: Keep in sync with lorabase.hpp

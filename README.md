@@ -12,11 +12,10 @@ This ESP32 component provides LoRaWAN communication with [The Things Network](ht
 
 The library is based on the LMIC library from IBM (specifically the well-maintained version by MCCI – see their [GitHub repository](https://github.com/mcci-catena/arduino-lmic)) and provides a high-level API specifically targeted at The Things Network.
 
-## New in version 3.3
+## New in version 4.0
 
-- Verified compatibility with ESP-IDF v4.2
-- Upgraded underlying library mcci-catena/arduino-lmic to v3.3.0 (no relevant changes)
-- Ensure interrupt code is in IRAM
+- Verified compatibility with ESP-IDF v4.3
+- Upgraded underlying library mcci-catena/arduino-lmic to v4.0.1 (improved channel shuffling)
 
 
 ## Get Started

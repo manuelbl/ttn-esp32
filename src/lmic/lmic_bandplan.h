@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -166,6 +166,14 @@
 # error "LMICbandplan_isDataRateFeasible() not defined by bandplan"
 #endif
 
+#if !defined(LMICbandplan_validDR)
+# error "LMICbandplan_validDR() not defined by bandplan"
+#endif
+
+#if !defined(LMICbandplan_processJoinAcceptCFList)
+# error "LMICbandplan_processJoinAcceptCFList() not defined by bandplan"
+#endif
+
 //
 // Things common to lmic.c code
 //
@@ -227,5 +235,23 @@
 ostime_t LMICcore_rndDelay(u1_t secSpan);
 void LMICcore_setDrJoin(u1_t reason, u1_t dr);
 ostime_t LMICcore_adjustForDrift(ostime_t delay, ostime_t hsym, rxsyms_t rxsyms_in);
+
+// this has been exported to clients forever by lmic.h. including lorabase.h;
+// but with multiband lorabase can't really safely do this; it's really an LMIC-ism.
+// As are the rest of the static inlines..
+
+///< \brief return non-zero if given DR is valid for this region.
+static inline bit_t validDR  (dr_t dr) { return LMICbandplan_validDR(dr); } // in range
+
+///< \brief region-specific table mapping DR to RPS/CRC bits; index by dr+1
+extern CONST_TABLE(u1_t, _DR2RPS_CRC)[];
+
+static inline rps_t updr2rps (dr_t dr) { return (rps_t)TABLE_GET_U1(_DR2RPS_CRC, dr+1); }
+static inline rps_t dndr2rps (dr_t dr) { return setNocrc(updr2rps(dr),1); }
+static inline dr_t  incDR    (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr+2)==ILLEGAL_RPS ? dr : (dr_t)(dr+1); } // increase data rate
+static inline dr_t  decDR    (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr  )==ILLEGAL_RPS ? dr : (dr_t)(dr-1); } // decrease data rate
+static inline dr_t  assertDR (dr_t dr) { return TABLE_GET_U1(_DR2RPS_CRC, dr+1)==ILLEGAL_RPS ? (dr_t)DR_DFLTMIN : dr; }   // force into a valid DR
+static inline dr_t  lowerDR  (dr_t dr, u1_t n) { while(n--){dr=decDR(dr);} return dr; } // decrease data rate by n steps
+
 
 #endif // _lmic_bandplan_h_

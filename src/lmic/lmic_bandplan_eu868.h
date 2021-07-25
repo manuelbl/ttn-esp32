@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -87,5 +87,9 @@ ostime_t LMICeu868_nextJoinTime(ostime_t now);
 
 void LMICeu868_setRx1Params(void);
 #define LMICbandplan_setRx1Params()     LMICeu868_setRx1Params()
+
+#undef LMICbandplan_validDR
+bit_t LMICeu868_validDR(dr_t dr);
+#define LMICbandplan_validDR(dr)        LMICeu868_validDR(dr)
 
 #endif // _lmic_eu868_h_

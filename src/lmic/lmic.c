@@ -1476,7 +1476,12 @@ ostime_t LMICcore_adjustForDrift (ostime_t delay, ostime_t hsym, rxsyms_t rxsyms
         // a compile-time configuration. (In other words, assume that millis()
         // clock is accurate to 0.1%.) You should never use clockerror to
         // compensate for system-late problems.
-        u2_t const maxError = LMIC_kMaxClockError_ppm * MAX_CLOCK_ERROR / (1000 * 1000);
+        // note about compiler: The initializer for maxError is coded for
+        // maximum portability.  On 16-bit systems, some compilers complain
+        // if we write x / (1000 * 1000).  x / 1000 / 1000 uses constants,
+        // is generally acceptable so it can be optimized in compiler's own
+        // way.
+        u2_t const maxError = LMIC_kMaxClockError_ppm * MAX_CLOCK_ERROR / 1000 / 1000;
         if (! LMIC_ENABLE_arbitrary_clock_error && clockerr > maxError)
             {
             clockerr = maxError;
@@ -1616,21 +1621,9 @@ static bit_t processJoinAccept (void) {
     // initDefaultChannels(0) for EU-like, nothing otherwise
     LMICbandplan_joinAcceptChannelClear();
 
-    if (!LMICbandplan_hasJoinCFlist() && dlen > LEN_JA) {
-            // if no JoinCFList, we're supposed to continue
-            // the join per 2.2.5 of LoRaWAN regional 2.2.4
-            // https://github.com/mcci-catena/arduino-lmic/issues/19
-    } else if ( LMICbandplan_hasJoinCFlist() && dlen > LEN_JA ) {
-        dlen = OFF_CFLIST;
-        for( u1_t chidx=3; chidx<8; chidx++, dlen+=3 ) {
-            u4_t freq = LMICbandplan_convFreq(&LMIC.frame[dlen]);
-            if( freq ) {
-                LMIC_setupChannel(chidx, freq, 0, -1);
-#if LMIC_DEBUG_LEVEL > 1
-                LMIC_DEBUG_PRINTF("%"LMIC_PRId_ostime_t": Setup channel, idx=%d, freq=%"PRIu32"\n", os_getTime(), chidx, freq);
-#endif
-            }
-        }
+    // process the CFList if present
+    if (dlen == LEN_JAEXT) {
+        LMICbandplan_processJoinAcceptCFList();
     }
 
     // already incremented when JOIN REQ got sent off
@@ -2882,7 +2875,11 @@ dr_t LMIC_feasibleDataRateForFrame(dr_t dr, u1_t payloadSize) {
 }
 
 static bit_t isTxPathBusy(void) {
-    return (LMIC.opmode & (OP_TXDATA|OP_JOINING)) != 0;
+    return (LMIC.opmode & (OP_POLL | OP_TXDATA | OP_JOINING | OP_TXRXPEND)) != 0;
+}
+
+bit_t LMIC_queryTxReady (void) {
+    return ! isTxPathBusy();
 }
 
 static bit_t adjustDrForFrameIfNotBusy(u1_t len) {
@@ -2902,6 +2899,10 @@ void LMIC_setTxData (void) {
 }
 
 void LMIC_setTxData_strict (void) {
+    if (isTxPathBusy()) {
+        return;
+    }
+
     LMICOS_logEventUint32(__func__, ((u4_t)LMIC.pendTxPort << 24u) | ((u4_t)LMIC.pendTxConf << 16u) | (LMIC.pendTxLen << 0u));
     LMIC.opmode |= OP_TXDATA;
     if( (LMIC.opmode & OP_JOINING) == 0 ) {
@@ -2920,7 +2921,7 @@ lmic_tx_error_t LMIC_setTxData2 (u1_t port, xref2u1_t data, u1_t dlen, u1_t conf
 
 // send a message w/o callback; do not adjust data rate
 lmic_tx_error_t LMIC_setTxData2_strict (u1_t port, xref2u1_t data, u1_t dlen, u1_t confirmed) {
-    if ( LMIC.opmode & OP_TXDATA ) {
+    if (isTxPathBusy()) {
         // already have a message queued
         return LMIC_ERROR_TX_BUSY;
     }
@@ -2940,7 +2941,7 @@ lmic_tx_error_t LMIC_setTxData2_strict (u1_t port, xref2u1_t data, u1_t dlen, u1
             return LMIC_ERROR_TX_FAILED;
         }
     }
-    return 0;
+    return LMIC_ERROR_SUCCESS;
 }
 
 // send a message with callback; try to adjust data rate

@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,14 @@ CONST_TABLE(u1_t, _DR2RPS_CRC)[] = {
         MAKERPS(SF7 , BW500, CR_4_5, 0, 0),     // [13]
         ILLEGAL_RPS
 };
+
+bit_t
+LMICau915_validDR(dr_t dr) {
+        // use subtract here to avoid overflow
+        if (dr >= LENOF_TABLE(_DR2RPS_CRC) - 2)
+                return 0;
+        return TABLE_GET_U1(_DR2RPS_CRC, dr+1)!=ILLEGAL_RPS;
+}
 
 static CONST_TABLE(u1_t, maxFrameLens_dwell0)[] = {
         59+5,  59+5,  59+5, 123+5, 250+5, 250+5, 250+5, 0,
@@ -144,7 +152,24 @@ u4_t LMICau915_convFreq(xref2cu1_t ptr) {
         return freq;
 }
 
-// au915: no support for xchannels.
+///
+/// \brief query number of default channels.
+///
+/// \note
+///     For AU, we have no programmable channels; all channels
+///     are fixed. Return the total channel count.
+///
+u1_t LMIC_queryNumDefaultChannels() {
+        return 64 + 8;
+}
+
+
+///
+/// \brief LMIC_setupChannel for AU915
+///
+/// \note there are no progammable channels for US915, so this API
+///     always returns FALSE.
+///
 bit_t LMIC_setupChannel(u1_t chidx, u4_t freq, u2_t drmap, s1_t band) {
         LMIC_API_PARAMETER(chidx);
         LMIC_API_PARAMETER(freq);

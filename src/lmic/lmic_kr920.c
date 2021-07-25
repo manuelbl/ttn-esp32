@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,14 @@ CONST_TABLE(u1_t, _DR2RPS_CRC)[] = {
         (u1_t)MAKERPS(SF7,  BW125, CR_4_5, 0, 0),       // [5]
         ILLEGAL_RPS,                                    // [6]
 };
+
+bit_t
+LMICkr920_validDR(dr_t dr) {
+        // use subtract here to avoid overflow
+        if (dr >= LENOF_TABLE(_DR2RPS_CRC) - 2)
+                return 0;
+        return TABLE_GET_U1(_DR2RPS_CRC, dr+1)!=ILLEGAL_RPS;
+}
 
 static CONST_TABLE(u1_t, maxFrameLens)[] = {
         59+5, 59+5, 59+5, 123+5, 250+5, 250+5
@@ -145,17 +153,28 @@ bit_t LMIC_setupBand(u1_t bandidx, s1_t txpow, u2_t txcap) {
         return 1;
 }
 
+///
+/// \brief query number of default channels.
+///
+u1_t LMIC_queryNumDefaultChannels() {
+        return NUM_DEFAULT_CHANNELS;
+}
+
+///
+/// \brief LMIC_setupChannel for KR920
+///
+/// \note according to LoRaWAN 1.3 section 5.6, "the acceptable range
+///     for **ChIndex** is N to 16", where N is our \c NUM_DEFAULT_CHANNELS.
+///     This routine is used internally for MAC commands, so we enforce
+///     this for the extenal API as well.
+///
 bit_t LMIC_setupChannel(u1_t chidx, u4_t freq, u2_t drmap, s1_t band) {
         // zero the band bits in freq, just in case.
         freq &= ~3;
 
         if (chidx < NUM_DEFAULT_CHANNELS) {
-                // can't disable a default channel.
-                if (freq == 0)
-                        return 0;
                 // can't change a default channel.
-                else if (freq != (LMIC.channelFreq[chidx] & ~3))
-                        return 0;
+                return 0;
         }
         bit_t fEnable = (freq != 0);
         if (chidx >= MAX_CHANNELS)
@@ -184,28 +203,44 @@ u4_t LMICkr920_convFreq(xref2cu1_t ptr) {
         return freq;
 }
 
-// return the next time, but also do channel hopping here
-// since there's no duty cycle limitation, and no dwell limitation,
-// we simply loop through the channels sequentially.
+///
+/// \brief change the TX channel given the desired tx time.
+///
+/// \param [in] now is the time at which we want to transmit. In fact, it's always
+///     the current time.
+///
+/// \returns the actual time at which we can transmit. \c LMIC.txChnl is set to the
+///     selected channel.
+///
+/// \details
+///     We scan all the bands, creating a mask of all enabled channels that are
+///     feasible at the earliest possible time. We then randomly choose one from
+///     that, updating the shuffle mask.
+///
+///     Since there's no duty cycle limitation, and no dwell limitation,
+///     we just choose a channel from the shuffle and return the current time.
+///
 ostime_t LMICkr920_nextTx(ostime_t now) {
-        const u1_t band = BAND_MILLI;
+        uint16_t availmask;
 
-        for (u1_t ci = 0; ci < MAX_CHANNELS; ci++) {
-                // Find next channel in given band
-                u1_t chnl = LMIC.bands[band].lastchnl;
-                for (u1_t ci = 0; ci<MAX_CHANNELS; ci++) {
-                        if ((chnl = (chnl + 1)) >= MAX_CHANNELS)
-                                chnl -= MAX_CHANNELS;
-                        if ((LMIC.channelMap & (1 << chnl)) != 0 &&  // channel enabled
-                                (LMIC.channelDrMap[chnl] & (1 << (LMIC.datarate & 0xF))) != 0 &&
-                                band == (LMIC.channelFreq[chnl] & 0x3)) { // in selected band
-                                LMIC.txChnl = LMIC.bands[band].lastchnl = chnl;
-                                return now;
-                        }
-                }
+        // scan all the enabled channels and make a mask of candidates
+        availmask = 0;
+        for (u1_t chnl = 0; chnl < MAX_CHANNELS; ++chnl) {
+                // not enabled?
+                if ((LMIC.channelMap & (1 << chnl)) == 0)
+                        continue;
+                // not feasible?
+                if ((LMIC.channelDrMap[chnl] & (1 << (LMIC.datarate & 0xF))) == 0)
+                        continue;
+                availmask |= 1 << chnl;
         }
 
-        // no enabled channel found! just use the last channel.
+        // now: calculate the mask
+        int candidateCh = LMIC_findNextChannel(&LMIC.channelShuffleMap, &availmask, 1, LMIC.txChnl == 0xFF ? -1 : LMIC.txChnl);
+        if (candidateCh >= 0) {
+                // update the channel.
+                LMIC.txChnl = candidateCh;
+        }
         return now;
 }
 

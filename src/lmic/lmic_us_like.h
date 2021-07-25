@@ -63,8 +63,14 @@ LMICuslike_isValidBeacon1(const uint8_t *d) {
 // provide a default LMICbandplan_joinAcceptChannelClear()
 #define LMICbandplan_joinAcceptChannelClear() do { } while (0)
 
-// no CFList on joins for US-like plans
-#define LMICbandplan_hasJoinCFlist()    (0)
+/// \brief there's a CFList on joins for US-like plans
+#define LMICbandplan_hasJoinCFlist()    (1)
+
+/// \brief process CFLists from JoinAccept for EU-like regions
+void LMICuslike_processJoinAcceptCFList(void);
+/// \brief by default, EU-like plans use LMICuslike_processJoinAcceptCFList
+#define LMICbandplan_processJoinAcceptCFList    LMICuslike_processJoinAcceptCFList
+
 
 #define LMICbandplan_advanceBeaconChannel()     \
         do { LMIC.bcnChnl = (LMIC.bcnChnl+1) & 7; } while (0)

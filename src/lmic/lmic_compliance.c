@@ -284,7 +284,7 @@ static void evMessage(
             break;
             }
         case LORAWAN_COMPLIANCE_CMD_LINK: {
-            // not clear what this request does.
+            // we are required to initiate a Link
             break;
         }
         case LORAWAN_COMPLIANCE_CMD_JOIN: {

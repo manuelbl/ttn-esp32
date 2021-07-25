@@ -128,7 +128,9 @@ void LMICeulike_initJoinLoop(uint8_t nDefaultChannels, s1_t adrTxPow) {
 #if CFG_TxContinuousMode
         LMIC.txChnl = 0
 #else
-        LMIC.txChnl = os_getRndU1() % nDefaultChannels;
+        uint16_t enableMap = (1 << nDefaultChannels) - 1;
+        LMIC.channelShuffleMap = enableMap;
+        LMIC.txChnl = LMIC_findNextChannel(&LMIC.channelShuffleMap, &enableMap, 1, -1);
 #endif
         LMIC.adrTxPow = adrTxPow;
         // TODO(tmm@mcci.com) don't use EU directly, use a table. That
@@ -166,12 +168,11 @@ void LMICeulike_updateTx(ostime_t txbeg) {
 //
 ostime_t LMICeulike_nextJoinState(uint8_t nDefaultChannels) {
         u1_t failed = 0;
+        u2_t enableMap = (1 << nDefaultChannels) - 1;
 
         // Try each default channel with same DR
         // If all fail try next lower datarate
-        if (++LMIC.txChnl == /* NUM_DEFAULT_CHANNELS */ nDefaultChannels)
-                LMIC.txChnl = 0;
-        if ((++LMIC.txCnt % nDefaultChannels) == 0) {
+        if (LMIC.channelShuffleMap == 0) {
                 // Lower DR every nth try (having all default channels with same DR)
                 //
                 // TODO(tmm@mcci.com) add new DR_REGION_JOIN_MIN instead of LORAWAN_DR0;
@@ -179,7 +180,6 @@ ostime_t LMICeulike_nextJoinState(uint8_t nDefaultChannels) {
                 // the failed flag here. This will cause the outer caller to take the
                 // appropriate join path. Or add new LMICeulike_GetLowestJoinDR()
                 //
-
 // TODO(tmm@mcci.com) - see above; please remove regional dependency from this file.
 #if CFG_region == LMIC_REGION_as923
                 // in the join of AS923 v1.1 or older, only DR2 is used.
@@ -187,15 +187,22 @@ ostime_t LMICeulike_nextJoinState(uint8_t nDefaultChannels) {
                 LMIC.datarate = AS923_DR_SF10;
                 failed = 1;
 #else
-                if (LMIC.datarate == LORAWAN_DR0)
+                if (LMIC.datarate == LORAWAN_DR0) {
                         failed = 1; // we have tried all DR - signal EV_JOIN_FAILED
-                else {
+                } else {
                         LMICcore_setDrJoin(DRCHG_NOJACC, decDR((dr_t)LMIC.datarate));
                 }
 #endif
         }
-        // Clear NEXTCHNL because join state engine controls channel hopping
+
+        // find new channel, avoiding repeats.
+        int newCh = LMIC_findNextChannel(&LMIC.channelShuffleMap, &enableMap, 1, LMIC.txChnl);
+        if (newCh >= 0)
+                LMIC.txChnl = newCh;
+
+        // Clear OP_NEXTCHNL because join state engine controls channel hopping
         LMIC.opmode &= ~OP_NEXTCHNL;
+
         // Move txend to randomize synchronized concurrent joins.
         // Duty cycle is based on txend.
         ostime_t const time = LMICbandplan_nextJoinTime(os_getTime());
@@ -217,6 +224,27 @@ ostime_t LMICeulike_nextJoinState(uint8_t nDefaultChannels) {
                         : DNW2_SAFETY_ZONE + LMICcore_rndDelay(255 >> LMIC.datarate));
         // 1 - triggers EV_JOIN_FAILED event
         return failed;
+}
+#endif // !DISABLE_JOIN
+
+#if !defined(DISABLE_JOIN)
+void LMICeulike_processJoinAcceptCFList(void) {
+    if ( LMICbandplan_hasJoinCFlist() &&
+         LMIC.frame[OFF_CFLIST + 15] == LORAWAN_JoinAccept_CFListType_FREQUENCIES) {
+        u1_t dlen;
+        u1_t nDefault = LMIC_queryNumDefaultChannels();
+
+        dlen = OFF_CFLIST;
+        for( u1_t chidx = nDefault; chidx < nDefault + 5; chidx++, dlen+=3 ) {
+            u4_t freq = LMICbandplan_convFreq(&LMIC.frame[dlen]);
+            if( freq ) {
+                LMIC_setupChannel(chidx, freq, 0, -1);
+#if LMIC_DEBUG_LEVEL > 1
+                LMIC_DEBUG_PRINTF("%"LMIC_PRId_ostime_t": Setup channel, idx=%d, freq=%"PRIu32"\n", os_getTime(), chidx, freq);
+#endif
+            }
+        }
+    }
 }
 #endif // !DISABLE_JOIN
 

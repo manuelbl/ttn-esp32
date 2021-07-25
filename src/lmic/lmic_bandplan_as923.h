@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -107,5 +107,9 @@ void LMICas923_updateTx(ostime_t txbeg);
 #undef LMICbandplan_nextJoinTime
 ostime_t LMICas923_nextJoinTime(ostime_t now);
 #define LMICbandplan_nextJoinTime(now)     LMICas923_nextJoinTime(now)
+
+#undef LMICbandplan_validDR
+bit_t LMICas923_validDR(dr_t dr);
+#define LMICbandplan_validDR(dr)        LMICas923_validDR(dr)
 
 #endif // _lmic_bandplan_as923_h_

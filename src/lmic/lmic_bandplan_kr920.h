@@ -1,6 +1,6 @@
 /*
 * Copyright (c) 2014-2016 IBM Corporation.
-* Copyright (c) 2017, 2019 MCCI Corporation.
+* Copyright (c) 2017, 2019-2021 MCCI Corporation.
 * All rights reserved.
 *
 *  Redistribution and use in source and binary forms, with or without
@@ -87,5 +87,9 @@ void LMICkr920_setRx1Params(void);
 #undef LMICbandplan_updateTx
 void LMICkr920_updateTx(ostime_t txbeg);
 #define LMICbandplan_updateTx(t)        LMICkr920_updateTx(t)
+
+#undef LMICbandplan_validDR
+bit_t LMICkr920_validDR(dr_t dr);
+#define LMICbandplan_validDR(dr)        LMICkr920_validDR(dr)
 
 #endif // _lmic_kr920_h_

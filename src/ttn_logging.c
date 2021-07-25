@@ -2,7 +2,7 @@
  * 
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
  * 
- * Copyright (c) 2018-2019 Manuel Bleichenbacher
+ * Copyright (c) 2018-2021 Manuel Bleichenbacher
  * 
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
@@ -13,24 +13,24 @@
 
 #if LMIC_ENABLE_event_logging
 
-#include <string.h>
-#include <esp_log.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+#include "ttn_logging.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
 #include "lmic/lmic.h"
-#include "TTNLogging.h"
+#include <string.h>
 
 
 #define NUM_RINGBUF_MSG 50
-static const char* const TAG = "lmic";
-static TTNLogging ttnLog;
+#define TAG "lmic"
+
 
 /**
  * @brief Message structure used in ring buffer
  * 
  * The structure is sent from the LMIC task to the logging task.
  */
-struct TTNLogMessage {
+typedef struct {
     const char* message;
     uint32_t    datum;
     ev_t        event;
@@ -47,13 +47,10 @@ struct TTNLogMessage {
     u1_t        datarate;
     u1_t        txrxFlags;
     u1_t        saveIrqFlags;
-};
+} TTNLogMessage;
 
-// Constants for formatting LORA values
-static const char* const SF_NAMES[] = { "FSK", "SF7", "SF8", "SF9", "SF10", "SF11", "SF12", "SFrfu" };
-static const char* const BW_NAMES[] = { "BW125", "BW250", "BW500", "BWrfu" };
-static const char* const CR_NAMES[] = { "CR 4/5", "CR 4/6", "CR 4/7", "CR 4/8" };
-static const char* const CRC_NAMES[] = { "NoCrc", "Crc" };
+static void loggingTask(void* param);
+static void logFatal(const char* file, uint16_t line);
 
 static void printMessage(TTNLogMessage* log);
 static void printFatalError(TTNLogMessage* log);
@@ -64,77 +61,78 @@ static void printEvtTxComplete(TTNLogMessage* log);
 static void printEvtTxStart(TTNLogMessage* log);
 static void printEvtRxStart(TTNLogMessage* log);
 static void printEvtJoinTxComplete(TTNLogMessage* log);
-static void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep = 0);
+static void bin2hex(const uint8_t* bin, unsigned len, char* buf, char sep);
 
+// Constants for formatting LORA values
+static const char* const SF_NAMES[] = { "FSK", "SF7", "SF8", "SF9", "SF10", "SF11", "SF12", "SFrfu" };
+static const char* const BW_NAMES[] = { "BW125", "BW250", "BW500", "BWrfu" };
+static const char* const CR_NAMES[] = { "CR 4/5", "CR 4/6", "CR 4/7", "CR 4/8" };
+static const char* const CRC_NAMES[] = { "NoCrc", "Crc" };
 
-// Create singleton instance
-TTNLogging* TTNLogging::initInstance()
-{
-    ttnLog.init();
-    return &ttnLog;
-}
+static RingbufHandle_t ringBuffer;
+
 
 // Initialize logging
-void TTNLogging::init()
+void ttn_log_init(void)
 {
     ringBuffer = xRingbufferCreate(NUM_RINGBUF_MSG * sizeof(TTNLogMessage), RINGBUF_TYPE_NOSPLIT);
-    if (ringBuffer == nullptr) {
+    if (ringBuffer == NULL) {
         ESP_LOGE(TAG, "Failed to create ring buffer");
         ASSERT(0);
     }
 
-    xTaskCreate(loggingTask, "ttn_log", 1024 * 4, ringBuffer, 4, nullptr);
+    xTaskCreate(loggingTask, "ttn_log", 1024 * 4, ringBuffer, 4, NULL);
     hal_set_failure_handler(logFatal);
 }
 
 // Record a logging event for later output
-void TTNLogging::logEvent(int event, const char* message, uint32_t datum)
+void ttn_log_event(int event, const char* message, uint32_t datum)
 {
-    if (ringBuffer == nullptr)
+    if (ringBuffer == NULL)
         return;
 
-    TTNLogMessage log;
-    log.message = message;
-    log.datum = datum;
-    
     // capture state
-    log.time = os_getTime();
-    log.txend = LMIC.txend;
-    log.globalDutyAvail = LMIC.globalDutyAvail;
-    log.event = (ev_t)event;
-    log.freq = LMIC.freq;
-    log.opmode = LMIC.opmode;
-    log.fcntDn = (u2_t) LMIC.seqnoDn;
-    log.fcntUp = (u2_t) LMIC.seqnoUp;
-    log.rxsyms = LMIC.rxsyms;
-    log.rps = LMIC.rps;
-    log.txChnl = LMIC.txChnl;
-    log.datarate = LMIC.datarate;
-    log.txrxFlags = LMIC.txrxFlags;
-    log.saveIrqFlags = LMIC.saveIrqFlags;
+    TTNLogMessage log = {
+        .message = message,
+        .datum = datum,
+        .time = os_getTime(),
+        .txend = LMIC.txend,
+        .globalDutyAvail = LMIC.globalDutyAvail,
+        .event = (ev_t)event,
+        .freq = LMIC.freq,
+        .opmode = LMIC.opmode,
+        .fcntDn = (u2_t) LMIC.seqnoDn,
+        .fcntUp = (u2_t) LMIC.seqnoUp,
+        .rxsyms = LMIC.rxsyms,
+        .rps = LMIC.rps,
+        .txChnl = LMIC.txChnl,
+        .datarate = LMIC.datarate,
+        .txrxFlags = LMIC.txrxFlags,
+        .saveIrqFlags = LMIC.saveIrqFlags,
+    };
 
     xRingbufferSend(ringBuffer, &log, sizeof(log), 0);
 }
 
 // record a fatal event (failed assert) for later output
-void TTNLogging::logFatal(const char* file, uint16_t line)
+void logFatal(const char* const file, const uint16_t line)
 {
-    ttnLog.logEvent(-3, file, line);
+    ttn_log_event(-3, file, line);
 }
 
 // Record an informational message for later output
 // The message must not be freed.
-extern "C" void LMICOS_logEvent(const char *pMessage)
+void LMICOS_logEvent(const char *pMessage)
 {
-    ttnLog.logEvent(-1, pMessage, 0);
+    ttn_log_event(-1, pMessage, 0);
 
 }
 
 // Record an information message with an integer value for later output
 // The message must not be freed.
-extern "C" void LMICOS_logEventUint32(const char *pMessage, uint32_t datum)
+void LMICOS_logEventUint32(const char *pMessage, uint32_t datum)
 {
-    ttnLog.logEvent(-2, pMessage, datum);
+    ttn_log_event(-2, pMessage, datum);
 }
 
 
@@ -142,14 +140,14 @@ extern "C" void LMICOS_logEventUint32(const char *pMessage, uint32_t datum)
 // Log output
 
 // Tasks that receiveds the recorded messages, formats and outputs them.
-void TTNLogging::loggingTask(void* param)
+void loggingTask(void* param)
 {
     RingbufHandle_t ringBuffer = (RingbufHandle_t)param;
 
     while (true) {
         size_t size;
         TTNLogMessage* log = (TTNLogMessage*) xRingbufferReceive(ringBuffer, &size, portMAX_DELAY);
-        if (log == nullptr)
+        if (log == NULL)
             continue;
 
         printMessage(log);

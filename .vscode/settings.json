@@ -10,6 +10,10 @@
         "__config": "c",
         "__nullptr": "c",
         "stdint.h": "c",
-        "*.ipp": "c"
+        "*.ipp": "c",
+        "algorithm": "c",
+        "random": "c",
+        "complex": "c",
+        "valarray": "c"
     }
 }

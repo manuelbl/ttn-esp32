@@ -17,7 +17,7 @@
 #include "lmic/lmic.h"
 #include "TheThingsNetwork.h"
 #include "ttn_provisioning.h"
-#include "TTNLogging.h"
+#include "ttn_logging.h"
 
 
 /**
@@ -59,9 +59,6 @@ static const char *TAG = "ttn";
 static TheThingsNetwork* ttnInstance;
 static QueueHandle_t lmicEventQueue = nullptr;
 static TTNWaitingReason waitingReason = eWaitingNone;
-#if LMIC_ENABLE_event_logging
-static TTNLogging* logging;
-#endif
 static TTNRFSettings lastRfSettings[4];
 static TTNRxTxWindow currentWindow;
 
@@ -95,7 +92,7 @@ void TheThingsNetwork::configurePins(spi_host_device_t spi_host, uint8_t nss, ui
     hal_esp32_configure_pins(spi_host, nss, rxtx, rst, dio0, dio1);
 
 #if LMIC_ENABLE_event_logging
-    logging = TTNLogging::initInstance();
+    ttn_log_init();
 #endif
 
     LMIC_registerEventCb(eventCallback, nullptr);
@@ -364,7 +361,7 @@ void eventCallback(void* userData, ev_t event)
     };
 
 #if LMIC_ENABLE_event_logging
-    logging->logEvent(event, eventNames[event], 0);
+    ttn_log_event(event, eventNames[event], 0);
 #elif CONFIG_LOG_DEFAULT_LEVEL >= 3
     ESP_LOGI(TAG, "event %s", eventNames[event]);
 #endif

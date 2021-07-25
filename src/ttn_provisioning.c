@@ -96,7 +96,7 @@ void os_getDevKey (u1_t* buf)
 
 // --- Constructor
 
-void ttn_provision_init(void)
+void ttn_provisioning_init(void)
 {
 }
 
@@ -105,7 +105,7 @@ void ttn_provision_init(void)
 
 #if defined(TTN_HAS_AT_COMMANDS)
 
-void ttn_provision_start_task(void)
+void ttn_provisioning_start_task(void)
 {
 #if defined(TTN_CONFIG_UART)
     config_uart();
@@ -244,9 +244,9 @@ void process_line(void)
         {
             line_buf[24] = 0;
             line_buf[41] = 0;
-            is_ok = ttn_provision_decode_keys(line_buf + 8, line_buf + 25, line_buf + 42);
+            is_ok = ttn_provisioning_decode_keys(line_buf + 8, line_buf + 25, line_buf + 42);
             if (is_ok)
-                is_ok = ttn_provision_save_keys();
+                is_ok = ttn_provisioning_save_keys();
             reset_needed = is_ok;
         }
     }
@@ -256,9 +256,9 @@ void process_line(void)
         if (is_ok)
         {
             line_buf[25] = 0;
-            is_ok = ttn_provision_from_mac(line_buf + 9, line_buf + 26);
+            is_ok = ttn_provisioning_from_mac(line_buf + 9, line_buf + 26);
             if (is_ok)
-                is_ok = ttn_provision_save_keys();
+                is_ok = ttn_provisioning_save_keys();
             reset_needed = is_ok;
         }
     }
@@ -342,17 +342,17 @@ void config_uart(void)
 
 // --- Key handling
 
-bool ttn_provision_have_keys(void)
+bool ttn_provisioning_have_keys(void)
 {
     return have_keys;
 }
 
-bool ttn_provision_decode_keys(const char *dev_eui, const char *app_eui, const char *app_key)
+bool ttn_provisioning_decode_keys(const char *dev_eui, const char *app_eui, const char *app_key)
 {
     return decode(true, dev_eui, app_eui, app_key);
 }
 
-bool ttn_provision_from_mac(const char *app_eui, const char *app_key)
+bool ttn_provisioning_from_mac(const char *app_eui, const char *app_key)
 {
     uint8_t mac[6];
     esp_err_t err = esp_efuse_mac_get_default(mac);
@@ -414,7 +414,7 @@ bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const c
 
 // --- Non-volatile storage
 
-bool ttn_provision_save_keys()
+bool ttn_provisioning_save_keys()
 {
     bool result = false;
 
@@ -449,7 +449,7 @@ done:
     return result;
 }
 
-bool ttn_provision_restore_keys(bool silent)
+bool ttn_provisioning_restore_keys(bool silent)
 {
     uint8_t buf_dev_eui[8];
     uint8_t buf_app_eui[8];

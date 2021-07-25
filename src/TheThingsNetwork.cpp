@@ -134,25 +134,25 @@ void TheThingsNetwork::startup()
 
 bool TheThingsNetwork::provision(const char *devEui, const char *appEui, const char *appKey)
 {
-    if (!ttn_provision_decode_keys(devEui, appEui, appKey))
+    if (!ttn_provisioning_decode_keys(devEui, appEui, appKey))
         return false;
     
-    return ttn_provision_save_keys();
+    return ttn_provisioning_save_keys();
 }
 
 bool TheThingsNetwork::provisionWithMAC(const char *appEui, const char *appKey)
 {
-    if (!ttn_provision_from_mac(appEui, appKey))
+    if (!ttn_provisioning_from_mac(appEui, appKey))
         return false;
     
-    return ttn_provision_save_keys();
+    return ttn_provisioning_save_keys();
 }
 
 
 void TheThingsNetwork::startProvisioningTask()
 {
 #if defined(TTN_HAS_AT_COMMANDS)
-    ttn_provision_start_task();
+    ttn_provisioning_start_task();
 #else
     ESP_LOGE(TAG, "AT commands are disabled. Change the configuration using 'make menuconfig'");
     ASSERT(0);
@@ -169,7 +169,7 @@ void TheThingsNetwork::waitForProvisioning()
         return;
     }
 
-    while (!ttn_provision_have_keys())
+    while (!ttn_provisioning_have_keys())
         vTaskDelay(pdMS_TO_TICKS(1000));
 
     ESP_LOGI(TAG, "Device successfully provisioned");
@@ -182,7 +182,7 @@ void TheThingsNetwork::waitForProvisioning()
 
 bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *appKey)
 {
-    if (!ttn_provision_decode_keys(devEui, appEui, appKey))
+    if (!ttn_provisioning_decode_keys(devEui, appEui, appKey))
         return false;
     
     return joinCore();
@@ -190,9 +190,9 @@ bool TheThingsNetwork::join(const char *devEui, const char *appEui, const char *
 
 bool TheThingsNetwork::join()
 {
-    if (!ttn_provision_have_keys())
+    if (!ttn_provisioning_have_keys())
     {
-        if (!ttn_provision_restore_keys(false))
+        if (!ttn_provisioning_restore_keys(false))
             return false;
     }
 
@@ -201,7 +201,7 @@ bool TheThingsNetwork::join()
 
 bool TheThingsNetwork::joinCore()
 {
-    if (!ttn_provision_have_keys())
+    if (!ttn_provisioning_have_keys())
     {
         ESP_LOGW(TAG, "Device EUI, App EUI and/or App key have not been provided");
         return false;
@@ -267,12 +267,12 @@ void TheThingsNetwork::onMessage(TTNMessageCallback callback)
 
 bool TheThingsNetwork::isProvisioned()
 {
-    if (ttn_provision_have_keys())
+    if (ttn_provisioning_have_keys())
         return true;
     
-    ttn_provision_restore_keys(true);
+    ttn_provisioning_restore_keys(true);
 
-    return ttn_provision_have_keys();
+    return ttn_provisioning_have_keys();
 }
 
 void TheThingsNetwork::setRSSICal(int8_t rssiCal)

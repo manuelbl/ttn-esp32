@@ -2,7 +2,7 @@
  * 
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
  * 
- * Copyright (c) 2018-2019 Manuel Bleichenbacher
+ * Copyright (c) 2018-2021 Manuel Bleichenbacher
  * 
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
@@ -10,34 +10,62 @@
  * Task listening on a UART port for provisioning commands.
  *******************************************************************************/
 
+#include "ttn_provisioning.h"
 #include "freertos/FreeRTOS.h"
 #include "driver/uart.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
-#include "TTNProvisioning.h"
 #include "lmic/lmic.h"
-#include "hal/hal_esp32.h"
+//#include "hal/hal_esp32.h"
 
 #if defined(TTN_HAS_AT_COMMANDS)
-const uart_port_t UART_NUM = (uart_port_t) CONFIG_TTN_PROVISION_UART_NUM;
-const int MAX_LINE_LENGTH = 128;
+#define UART_NUM CONFIG_TTN_PROVISION_UART_NUM
+#define MAX_LINE_LENGTH 128
 #endif
 
-static const char* const TAG = "ttn_prov";
-static const char* const NVS_FLASH_PARTITION = "ttn";
-static const char* const NVS_FLASH_KEY_DEV_EUI = "devEui";
-static const char* const NVS_FLASH_KEY_APP_EUI = "appEui";
-static const char* const NVS_FLASH_KEY_APP_KEY = "appKey";
+#define TAG "ttn_prov"
+#define NVS_FLASH_PARTITION "ttn"
+#define NVS_FLASH_KEY_DEV_EUI "devEui"
+#define NVS_FLASH_KEY_APP_EUI "appEui"
+#define NVS_FLASH_KEY_APP_KEY "appKey"
+
+#if defined(TTN_HAS_AT_COMMANDS)
+static void provisioning_task(void* pvParameter);
+static void add_line_data(int num_bytes);
+static void detect_line_end(int start_at);
+static void process_line(void);
+#endif
+
+#if defined(TTN_CONFIG_UART)
+static void config_uart(void);
+#endif
+
+static bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key);
+static bool read_nvs_value(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent);
+static bool write_nvs_value(nvs_handle handle, const char* key, const uint8_t* data, size_t len);
+
+static bool hex_str_to_bin(const char *hex, uint8_t *buf, int len);
+static int hex_tuple_to_byte(const char *hex);
+static int hex_digit_to_val(char ch);
+static void bin_to_hex_str(const uint8_t* buf, int len, char* hex);
+static char val_to_hex_digit(int val);
+static void swap_bytes(uint8_t* buf, int len);
+static bool is_all_zeros(const uint8_t* buf, int len);
 
 static uint8_t global_dev_eui[8];
 static uint8_t global_app_eui[8];
 static uint8_t global_app_key[16];
 
+static bool have_keys = false;
 
 #if defined(TTN_HAS_AT_COMMANDS)
-void ttn_provisioning_task_caller(void* pvParameter);
+static QueueHandle_t uart_queue;
+static char* line_buf;
+static int line_length;
+static uint8_t last_line_end_char;
+static bool quit_task;
 #endif
 
 
@@ -68,11 +96,7 @@ void os_getDevKey (u1_t* buf)
 
 // --- Constructor
 
-TTNProvisioning::TTNProvisioning()
-    : have_keys(false)
-#if defined(TTN_HAS_AT_COMMANDS)
-        , uart_queue(nullptr), line_buf(nullptr), line_length(0), last_line_end_char(0), quit_task(false)
-#endif
+void ttn_provision_init(void)
 {
 }
 
@@ -81,26 +105,19 @@ TTNProvisioning::TTNProvisioning()
 
 #if defined(TTN_HAS_AT_COMMANDS)
 
-void TTNProvisioning::startTask()
+void ttn_provision_start_task(void)
 {
 #if defined(TTN_CONFIG_UART)
-    configUART();
+    config_uart();
 #endif
 
     esp_err_t err = uart_driver_install(UART_NUM, 2048, 2048, 20, &uart_queue, 0);
     ESP_ERROR_CHECK(err);
 
-    xTaskCreate(ttn_provisioning_task_caller, "ttn_provision", 2048, this, 1, nullptr);
+    xTaskCreate(provisioning_task, "ttn_provision", 2048, NULL, 1, NULL);
 }
 
-void ttn_provisioning_task_caller(void* pvParameter)
-{
-    TTNProvisioning* provisioning = (TTNProvisioning*)pvParameter;
-    provisioning->provisioningTask();
-    vTaskDelete(nullptr);
-}
-
-void TTNProvisioning::provisioningTask()
+void provisioning_task(void* pvParameter)
 {
     line_buf = (char*)malloc(MAX_LINE_LENGTH + 1);
     line_length = 0;
@@ -117,7 +134,7 @@ void TTNProvisioning::provisioningTask()
         switch (event.type)
         {
             case UART_DATA:
-                addLineData(event.size);
+                add_line_data(event.size);
                 break;
 
             case UART_FIFO_OVF:
@@ -133,13 +150,14 @@ void TTNProvisioning::provisioningTask()
 
     free(line_buf);
     uart_driver_delete(UART_NUM);
+    vTaskDelete(NULL);
 }
 
-void TTNProvisioning::addLineData(int numBytes)
+void add_line_data(int num_bytes)
 {
     int n;
 top:
-    n = numBytes;
+    n = num_bytes;
     if (line_length + n > MAX_LINE_LENGTH)
         n = MAX_LINE_LENGTH - line_length;
     
@@ -147,16 +165,16 @@ top:
     int start_at = line_length;
     line_length += n;
 
-    detectLineEnd(start_at);
+    detect_line_end(start_at);
 
-    if (n < numBytes)
+    if (n < num_bytes)
     {
-        numBytes -= n;
+        num_bytes -= n;
         goto top;
     }
 }
 
-void TTNProvisioning::detectLineEnd(int start_at)
+void detect_line_end(int start_at)
 {
 top:
     for (int p = start_at; p < line_length; p++)
@@ -173,7 +191,7 @@ top:
             last_line_end_char = ch;
 
             if (p > 0)
-                processLine();
+                process_line();
 
             memcpy(line_buf, line_buf + p + 1, line_length - p - 1);
             line_length -= p + 1;
@@ -189,7 +207,7 @@ top:
         line_length = 0; // Line too long; flush it
 }
 
-void TTNProvisioning::processLine()
+void process_line(void)
 {
     bool is_ok = true;
     bool reset_needed = false;
@@ -207,14 +225,14 @@ void TTNProvisioning::processLine()
         char hexbuf[16];
 
         memcpy(binbuf, global_dev_eui, 8);
-        swapBytes(binbuf, 8);
-        binToHexStr(binbuf, 8, hexbuf);
+        swap_bytes(binbuf, 8);
+        bin_to_hex_str(binbuf, 8, hexbuf);
         uart_write_bytes(UART_NUM, hexbuf, 16);
         uart_write_bytes(UART_NUM, "-", 1);
 
         memcpy(binbuf, global_app_eui, 8);
-        swapBytes(binbuf, 8);
-        binToHexStr(binbuf, 8, hexbuf);
+        swap_bytes(binbuf, 8);
+        bin_to_hex_str(binbuf, 8, hexbuf);
         uart_write_bytes(UART_NUM, hexbuf, 16);
 
         uart_write_bytes(UART_NUM, "-00000000000000000000000000000000\r\n", 35);
@@ -226,9 +244,9 @@ void TTNProvisioning::processLine()
         {
             line_buf[24] = 0;
             line_buf[41] = 0;
-            is_ok = decodeKeys(line_buf + 8, line_buf + 25, line_buf + 42);
+            is_ok = ttn_provision_decode_keys(line_buf + 8, line_buf + 25, line_buf + 42);
             if (is_ok)
-                is_ok = saveKeys();
+                is_ok = ttn_provision_save_keys();
             reset_needed = is_ok;
         }
     }
@@ -238,9 +256,9 @@ void TTNProvisioning::processLine()
         if (is_ok)
         {
             line_buf[25] = 0;
-            is_ok = fromMAC(line_buf + 9, line_buf + 26);
+            is_ok = ttn_provision_from_mac(line_buf + 9, line_buf + 26);
             if (is_ok)
-                is_ok = saveKeys();
+                is_ok = ttn_provision_save_keys();
             reset_needed = is_ok;
         }
     }
@@ -252,7 +270,7 @@ void TTNProvisioning::processLine()
         esp_err_t err = esp_efuse_mac_get_default(mac);
         ESP_ERROR_CHECK(err);
 
-        binToHexStr(mac, 6, hexbuf);
+        bin_to_hex_str(mac, 6, hexbuf);
         for (int i = 0; i < 12; i += 2) {
             if (i > 0)
                 uart_write_bytes(UART_NUM, ":", 1);
@@ -268,7 +286,7 @@ void TTNProvisioning::processLine()
         esp_err_t err = esp_efuse_mac_get_default(mac);
         ESP_ERROR_CHECK(err);
 
-        binToHexStr(mac, 6, hexbuf);
+        bin_to_hex_str(mac, 6, hexbuf);
         for (int i = 0; i < 12; i += 2) {
             uart_write_bytes(UART_NUM, hexbuf + i, 2);
             if (i == 4)
@@ -287,9 +305,10 @@ void TTNProvisioning::processLine()
 
     if (reset_needed)
     {
-        ttn_hal.enterCriticalSection();
+        // TODO
+        // ttn_hal.enterCriticalSection();
         LMIC_reset();
-        ttn_hal.leaveCriticalSection();
+        // ttn_hal.leaveCriticalSection();
         LMIC.client.eventCb(LMIC.client.eventUserData, EV_RESET);
     }
 
@@ -301,7 +320,7 @@ void TTNProvisioning::processLine()
 
 #if defined(TTN_CONFIG_UART)
 
-void TTNProvisioning::configUART()
+void config_uart(void)
 {
     esp_err_t err;
 
@@ -310,9 +329,7 @@ void TTNProvisioning::configUART()
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .rx_flow_ctrl_thresh = 0,
-        .use_ref_tick = false
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
     };
     err = uart_param_config(UART_NUM, &uart_config);
     ESP_ERROR_CHECK(err);
@@ -326,17 +343,17 @@ void TTNProvisioning::configUART()
 
 // --- Key handling
 
-bool TTNProvisioning::haveKeys()
+bool ttn_provision_have_keys(void)
 {
     return have_keys;
 }
 
-bool TTNProvisioning::decodeKeys(const char *dev_eui, const char *app_eui, const char *app_key)
+bool ttn_provision_decode_keys(const char *dev_eui, const char *app_eui, const char *app_key)
 {
     return decode(true, dev_eui, app_eui, app_key);
 }
 
-bool TTNProvisioning::fromMAC(const char *app_eui, const char *app_key)
+bool ttn_provision_from_mac(const char *app_eui, const char *app_key)
 {
     uint8_t mac[6];
     esp_err_t err = esp_efuse_mac_get_default(mac);
@@ -351,33 +368,33 @@ bool TTNProvisioning::fromMAC(const char *app_eui, const char *app_key)
     global_dev_eui[1] = mac[4];
     global_dev_eui[0] = mac[5];
 
-    return decode(false, nullptr, app_eui, app_key);
+    return decode(false, NULL, app_eui, app_key);
 }
 
-bool TTNProvisioning::decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key)
+bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key)
 {
     uint8_t buf_dev_eui[8];
     uint8_t buf_app_eui[8];
     uint8_t buf_app_key[16];
 
-    if (incl_dev_eui && (strlen(dev_eui) != 16 || !hexStrToBin(dev_eui, buf_dev_eui, 8)))
+    if (incl_dev_eui && (strlen(dev_eui) != 16 || !hex_str_to_bin(dev_eui, buf_dev_eui, 8)))
     {
         ESP_LOGW(TAG, "Invalid device EUI: %s", dev_eui);
         return false;
     }
 
     if (incl_dev_eui)
-        swapBytes(buf_dev_eui, 8);
+        swap_bytes(buf_dev_eui, 8);
 
-    if (strlen(app_eui) != 16 || !hexStrToBin(app_eui, buf_app_eui, 8))
+    if (strlen(app_eui) != 16 || !hex_str_to_bin(app_eui, buf_app_eui, 8))
     {
         ESP_LOGW(TAG, "Invalid application EUI: %s", app_eui);
         return false;
     }
 
-    swapBytes(buf_app_eui, 8);
+    swap_bytes(buf_app_eui, 8);
 
-    if (strlen(app_key) != 32 || !hexStrToBin(app_key, buf_app_key, 16))
+    if (strlen(app_key) != 32 || !hex_str_to_bin(app_key, buf_app_key, 16))
     {
         ESP_LOGW(TAG, "Invalid application key: %s", app_key);
         return false;
@@ -388,9 +405,9 @@ bool TTNProvisioning::decode(bool incl_dev_eui, const char *dev_eui, const char 
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
-    have_keys = !isAllZeros(global_dev_eui, sizeof(global_dev_eui))
-        && !isAllZeros(global_app_eui, sizeof(global_app_eui))
-        && !isAllZeros(global_app_key, sizeof(global_app_key));
+    have_keys = !is_all_zeros(global_dev_eui, sizeof(global_dev_eui))
+        && !is_all_zeros(global_app_eui, sizeof(global_app_eui))
+        && !is_all_zeros(global_app_key, sizeof(global_app_key));
 
     return true;
 }
@@ -398,7 +415,7 @@ bool TTNProvisioning::decode(bool incl_dev_eui, const char *dev_eui, const char 
 
 // --- Non-volatile storage
 
-bool TTNProvisioning::saveKeys()
+bool ttn_provision_save_keys()
 {
     bool result = false;
 
@@ -413,13 +430,13 @@ bool TTNProvisioning::saveKeys()
     if (res != ESP_OK)
         goto done;
 
-    if (!writeNvsValue(handle, NVS_FLASH_KEY_DEV_EUI, global_dev_eui, sizeof(global_dev_eui)))
+    if (!write_nvs_value(handle, NVS_FLASH_KEY_DEV_EUI, global_dev_eui, sizeof(global_dev_eui)))
         goto done;
         
-    if (!writeNvsValue(handle, NVS_FLASH_KEY_APP_EUI, global_app_eui, sizeof(global_app_eui)))
+    if (!write_nvs_value(handle, NVS_FLASH_KEY_APP_EUI, global_app_eui, sizeof(global_app_eui)))
         goto done;
         
-    if (!writeNvsValue(handle, NVS_FLASH_KEY_APP_KEY, global_app_key, sizeof(global_app_key)))
+    if (!write_nvs_value(handle, NVS_FLASH_KEY_APP_KEY, global_app_key, sizeof(global_app_key)))
         goto done;
 
     res = nvs_commit(handle);
@@ -433,7 +450,7 @@ done:
     return result;
 }
 
-bool TTNProvisioning::restoreKeys(bool silent)
+bool ttn_provision_restore_keys(bool silent)
 {
     uint8_t buf_dev_eui[8];
     uint8_t buf_app_eui[8];
@@ -452,22 +469,22 @@ bool TTNProvisioning::restoreKeys(bool silent)
     if (res != ESP_OK)
         goto done;
 
-    if (!readNvsValue(handle, NVS_FLASH_KEY_DEV_EUI, buf_dev_eui, sizeof(global_dev_eui), silent))
+    if (!read_nvs_value(handle, NVS_FLASH_KEY_DEV_EUI, buf_dev_eui, sizeof(global_dev_eui), silent))
         goto done;
 
-    if (!readNvsValue(handle, NVS_FLASH_KEY_APP_EUI, buf_app_eui, sizeof(global_app_eui), silent))
+    if (!read_nvs_value(handle, NVS_FLASH_KEY_APP_EUI, buf_app_eui, sizeof(global_app_eui), silent))
         goto done;
 
-    if (!readNvsValue(handle, NVS_FLASH_KEY_APP_KEY, buf_app_key, sizeof(global_app_key), silent))
+    if (!read_nvs_value(handle, NVS_FLASH_KEY_APP_KEY, buf_app_key, sizeof(global_app_key), silent))
         goto done;
 
     memcpy(global_dev_eui, buf_dev_eui, sizeof(global_dev_eui));
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
-    have_keys = !isAllZeros(global_dev_eui, sizeof(global_dev_eui))
-        && !isAllZeros(global_app_eui, sizeof(global_app_eui))
-        && !isAllZeros(global_app_key, sizeof(global_app_key));
+    have_keys = !is_all_zeros(global_dev_eui, sizeof(global_dev_eui))
+        && !is_all_zeros(global_app_eui, sizeof(global_app_eui))
+        && !is_all_zeros(global_app_key, sizeof(global_app_key));
 
     if (have_keys)
     {
@@ -483,7 +500,7 @@ done:
     return true;
 }
 
-bool TTNProvisioning::readNvsValue(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent)
+bool read_nvs_value(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent)
 {
     size_t size = expected_length;
     esp_err_t res = nvs_get_blob(handle, key, data, &size);
@@ -508,10 +525,10 @@ bool TTNProvisioning::readNvsValue(nvs_handle handle, const char* key, uint8_t* 
     return false;
 }
 
-bool TTNProvisioning::writeNvsValue(nvs_handle handle, const char* key, const uint8_t* data, size_t len)
+bool write_nvs_value(nvs_handle handle, const char* key, const uint8_t* data, size_t len)
 {
     uint8_t buf[16];
-    if (readNvsValue(handle, key, buf, len, true) && memcmp(buf, data, len) == 0)
+    if (read_nvs_value(handle, key, buf, len, true) && memcmp(buf, data, len) == 0)
         return true; // unchanged
     
     esp_err_t res = nvs_set_blob(handle, key, data, len);
@@ -523,12 +540,12 @@ bool TTNProvisioning::writeNvsValue(nvs_handle handle, const char* key, const ui
 
 // --- Helper functions ---
 
-bool TTNProvisioning::hexStrToBin(const char *hex, uint8_t *buf, int len)
+bool hex_str_to_bin(const char *hex, uint8_t *buf, int len)
 {
     const char* ptr = hex;
     for (int i = 0; i < len; i++)
     {
-        int val = hexTupleToByte(ptr);
+        int val = hex_tuple_to_byte(ptr);
         if (val < 0)
             return false;
         buf[i] = val;
@@ -537,18 +554,18 @@ bool TTNProvisioning::hexStrToBin(const char *hex, uint8_t *buf, int len)
     return true;
 }
 
-int TTNProvisioning::hexTupleToByte(const char *hex)
+int hex_tuple_to_byte(const char *hex)
 {
-    int nibble1 = hexDigitToVal(hex[0]);
+    int nibble1 = hex_digit_to_val(hex[0]);
     if (nibble1 < 0)
         return -1;
-    int nibble2 = hexDigitToVal(hex[1]);
+    int nibble2 = hex_digit_to_val(hex[1]);
     if (nibble2 < 0)
         return -1;
     return (nibble1 << 4) | nibble2;
 }
 
-int TTNProvisioning::hexDigitToVal(char ch)
+int hex_digit_to_val(char ch)
 {
     if (ch >= '0' && ch <= '9')
         return ch - '0';
@@ -559,24 +576,24 @@ int TTNProvisioning::hexDigitToVal(char ch)
     return -1;
 }
 
-void TTNProvisioning::binToHexStr(const uint8_t* buf, int len, char* hex)
+void bin_to_hex_str(const uint8_t* buf, int len, char* hex)
 {
     for (int i = 0; i < len; i++)
     {
         uint8_t b = buf[i];
-        *hex = valToHexDigit((b & 0xf0) >> 4);
+        *hex = val_to_hex_digit((b & 0xf0) >> 4);
         hex++;
-        *hex = valToHexDigit(b & 0x0f);
+        *hex = val_to_hex_digit(b & 0x0f);
         hex++;
     }
 }
 
-char TTNProvisioning::valToHexDigit(int val)
+char val_to_hex_digit(int val)
 {
     return "0123456789ABCDEF"[val];
 }
 
-void TTNProvisioning::swapBytes(uint8_t* buf, int len)
+void swap_bytes(uint8_t* buf, int len)
 {
     uint8_t* p1 = buf;
     uint8_t* p2 = buf + len - 1;
@@ -590,7 +607,7 @@ void TTNProvisioning::swapBytes(uint8_t* buf, int len)
     }
 }
 
-bool TTNProvisioning::isAllZeros(const uint8_t* buf, int len)
+bool is_all_zeros(const uint8_t* buf, int len)
 {
     for (int i = 0; i < len; i++)
         if (buf[i] != 0)

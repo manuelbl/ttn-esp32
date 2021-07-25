@@ -2,37 +2,30 @@
  * 
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
  * 
- * Copyright (c) 2018 Manuel Bleichenbacher
+ * Copyright (c) 2018-2021 Manuel Bleichenbacher
  * 
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
- * High-level API for ttn-esp32.
+ * High-level C++ API for ttn-esp32.
  *******************************************************************************/
 
 #ifndef _THETHINGSNETWORK_H_
 #define _THETHINGSNETWORK_H_
 
-#include <stdint.h>
-#include "driver/spi_master.h"
+#include "ttn.h"
 
-/**
- * @brief Constant for indicating that a pin is not connected
- */
-#define TTN_NOT_CONNECTED 0xff
-
-
-typedef uint8_t port_t;
+typedef ttn_port_t port_t;
 
 /**
  * @brief Response codes
  */
 enum TTNResponseCode
 {
-    kTTNErrorTransmissionFailed = -1,
-    kTTNErrorUnexpected = -10,
-    kTTNSuccessfulTransmission = 1,
-    kTTNSuccessfulReceive = 2
+    kTTNErrorTransmissionFailed = TTN_ERROR_TRANSMISSION_FAILED,
+    kTTNErrorUnexpected = TTN_ERROR_UNEXPECTED,
+    kTTNSuccessfulTransmission = TTN_SUCCESSFUL_TRANSMISSION,
+    kTTNSuccessfulReceive = TTN_SUCCESSFUL_RECEIVE
 };
 
 
@@ -44,19 +37,19 @@ enum TTNRxTxWindow
     /**
      * @brief Outside RX/TX window
      */
-    kTTNIdleWindow = 0,
+    kTTNIdleWindow = TTN_WINDOW_IDLE,
     /**
      * @brief Transmission window (up to RX1 window)
      */
-    kTTNTxWindow = 1,
+    kTTNTxWindow = TTN_WINDOW_TX,
     /**
      * @brief Reception window 1 (up to RX2 window)
      */
-    kTTNRx1Window = 2,
+    kTTNRx1Window = TTN_WINDOW_RX1,
     /**
      * @brief Reception window 2
      */
-    kTTNRx2Window = 3
+    kTTNRx2Window = TTN_WINDOW_RX2
 };
 
 
@@ -68,35 +61,35 @@ enum TTNSpreadingFactor
     /**
      * @brief Unused / undefined spreading factor
      */
-    kTTNSFNone = 0,
+    kTTNSFNone = TTN_SF_NONE,
     /**
      * @brief Frequency Shift Keying (FSK)
      */
-    kTTNFSK = 1,
+    kTTNFSK = TTN_FSK,
     /**
      * @brief Spreading Factor 7 (SF7)
      */
-    kTTNSF7 = 2,
+    kTTNSF7 = TTN_SF7,
     /**
      * @brief Spreading Factor 8 (SF8)
      */
-    kTTNSF8 = 3,
+    kTTNSF8 = TTN_SF8,
     /**
      * @brief Spreading Factor 9 (SF9)
      */
-    kTTNSF9 = 4,
+    kTTNSF9 = TTN_SF9,
     /**
      * @brief Spreading Factor 10 (SF10)
      */
-    kTTNSF10 = 5,
+    kTTNSF10 = TTN_SF10,
     /**
      * @brief Spreading Factor 11 (SF11)
      */
-    kTTNSF11 = 6,
+    kTTNSF11 = TTN_SF11,
     /**
      * @brief Spreading Factor 12 (SF12)
      */
-    kTTNSF12 = 7
+    kTTNSF12 = TTN_SF12
 };
 
 
@@ -108,19 +101,19 @@ enum TTNBandwidth
     /**
      * @brief Undefined/unused bandwidth
      */
-    kTTNBWNone = 0,
+    kTTNBWNone = TTN_BW_NONE,
     /**
      * @brief Bandwidth of 125 kHz
      */
-    kTTNBW125 = 1,
+    kTTNBW125 = TTN_BW125,
     /**
      * @brief Bandwidth of 250 kHz
      */
-    kTTNBW250 = 2,
+    kTTNBW250 = TTN_BW250,
     /**
      * @brief Bandwidth of 500 kHz
      */
-    kTTNBW500 = 3
+    kTTNBW500 = TTN_BW500
 };
 
 
@@ -167,12 +160,12 @@ public:
     /**
      * @brief Constructs a new The Things Network device instance.
      */
-    TheThingsNetwork();
+    TheThingsNetwork() { ttn_init(); }
 
     /**
      * @brief Destroys the The Things Network device instance.
      */
-    ~TheThingsNetwork();
+    ~TheThingsNetwork() { }
 
     /**
      * @brief Resets the LoRaWAN radio.
@@ -180,7 +173,7 @@ public:
      * To restart communication, join() must be called.
      * It neither clears the provisioned keys nor the configured pins.
      */
-    void reset();
+    void reset() { ttn_reset(); }
 
     /**
      * @brief Configures the pins used to communicate with the LoRaWAN radio chip.
@@ -195,7 +188,10 @@ public:
      * @param dio0      The GPIO pin number connected to the radio chip's DIO0 pin
      * @param dio1      The GPIO pin number connected to the radio chip's DIO1 pin
      */
-    void configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1);
+    void configurePins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1)
+    {
+        ttn_configure_pins(spi_host, nss, rxtx, rst, dio0, dio1);
+    }
 
     /**
      * @brief Sets the credentials needed to activate the device via OTAA, without activating it.
@@ -210,7 +206,7 @@ public:
      * @param appKey  App Key of the device (32 character string with hexadecimal data)
      * @return `true` if the provisioning was successful, `false`  if the provisioning failed
      */
-    bool provision(const char *devEui, const char *appEui, const char *appKey);
+    bool provision(const char *devEui, const char *appEui, const char *appKey) { return ttn_provision(devEui, appEui, appKey); }
 
     /**
      * @brief Sets the information needed to activate the device via OTAA, using the MAC to generate the device EUI
@@ -234,14 +230,14 @@ public:
      * @param appKey  App Key of the device (32 character string with hexadecimal data)
      * @return `true` if the provisioning was successful, `false`  if the provisioning failed
      */
-    bool provisionWithMAC(const char *appEui, const char *appKey);
+    bool provisionWithMAC(const char *appEui, const char *appKey) { return ttn_provision_with_mac(appEui, appKey); }
 
     /**
      * @brief Starts task listening on configured UART for AT commands.
      * 
      * Run `make menuconfig` to configure it.
      */
-    void startProvisioningTask();
+    void startProvisioningTask() { ttn_start_provisioning_task(); }
 
     /**
      * @brief Waits until the device EUI, app EUI and app key have been provisioned
@@ -251,7 +247,7 @@ public:
      * or call of join(const char*, const char*, const char*), this function
      * immediately returns.
      */
-    void waitForProvisioning();
+    void waitForProvisioning() { ttn_wait_for_provisioning(); }
 
      /**
      * @brief Activates the device via OTAA.
@@ -263,7 +259,7 @@ public:
      * 
      * @return `true` if the activation was succesful, `false` if the activation failed
      */
-    bool join();
+    bool join() { return ttn_join_provisioned(); }
 
    /**
      * @brief Sets the device EUI, app EUI and app key and activate the device via OTAA.
@@ -277,7 +273,7 @@ public:
      * @param appKey  App Key of the device (32 character string with hexadecimal data)
      * @return `true` if the activation was succesful, `false` if the activation failed
      */
-    bool join(const char *devEui, const char *appEui, const char *appKey);
+    bool join(const char *devEui, const char *appEui, const char *appKey) { return ttn_join(devEui, appEui, appKey); }
 
     /**
      * @brief Transmits a message
@@ -292,7 +288,10 @@ public:
      * @param confirm  flag indicating if a confirmation should be requested. Defaults to `false`
      * @return `kTTNSuccessfulTransmission` for successful transmission, `kTTNErrorTransmissionFailed` for failed transmission, `kTTNErrorUnexpected` for unexpected error
      */
-    TTNResponseCode transmitMessage(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false);
+    TTNResponseCode transmitMessage(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false)
+    {
+        return static_cast<TTNResponseCode>(ttn_transmit_message(payload, length, port, confirm));
+    }
 
     /**
      * @brief Sets the function to be called when a message is received
@@ -308,7 +307,7 @@ public:
      * 
      * @param callback  the callback function
      */
-    void onMessage(TTNMessageCallback callback);
+    void onMessage(TTNMessageCallback callback) { ttn_on_message(callback); }
 
     /**
      * @brief Checks if device EUI, app EUI and app key have been stored in non-volatile storage
@@ -316,7 +315,7 @@ public:
      * 
      * @return `true` if they are stored, complete and of the correct size, `false` otherwise
      */
-    bool isProvisioned();
+    bool isProvisioned() { return ttn_is_provisioned(); }
 
     /**
      * @brief Sets the RSSI calibration value for LBT (Listen Before Talk).
@@ -327,14 +326,14 @@ public:
      * 
      * @param rssiCal RSSI calibration value, in dB
      */
-    void setRSSICal(int8_t rssiCal);
+    void setRSSICal(int8_t rssiCal) { ttn_set_rssi_cal(rssiCal); }
 
     /**
      * Returns whether Adaptive Data Rate (ADR) is enabled.
      * 
      * @return `true` if enabled, `false` if disabled
      */
-    bool adrEnabled();
+    bool adrEnabled() { return ttn_adr_enabled(); }
 
     /**
      * @brief Enables or disabled Adaptive Data Rate (ADR).
@@ -344,7 +343,7 @@ public:
      * 
      * @param enabled `true` to enable, `false` to disable
      */ 
-    void setAdrEnabled(bool enabled);
+    void setAdrEnabled(bool enabled) { ttn_set_adr_enabled(enabled); }
 
     /**
      * @brief Stops all activies and shuts down the RF module and the background tasks.
@@ -352,20 +351,20 @@ public:
      * To restart communication, startup() and join() must be called.
      * it neither clears the provisioned keys nor the configured pins.
      */
-    void shutdown();
+    void shutdown() { ttn_shutdown(); }
 
     /**
      * @brief Restarts the background tasks and RF module.
      * 
      * This member function must only be called after a call to shutdowna().
      */
-    void startup();
+    void startup() { ttn_startup(); }
 
     /**
      * @brief Gets current RX/TX window
      * @return window
      */
-    TTNRxTxWindow rxTxWindow();
+    TTNRxTxWindow rxTxWindow() { return static_cast<TTNRxTxWindow>(ttn_rx_tx_window()); }
 
     /**
      * @brief Gets the RF settings for the specified window
@@ -377,19 +376,19 @@ public:
      * @brief Gets the RF settings of the last (or ongoing) transmission.
      * @return RF settings
      */
-    TTNRFSettings txSettings();
+    TTNRFSettings txSettings() { return getRFSettings(kTTNTxWindow); }
 
     /**
      * @brief Gets the RF settings of the last (or ongoing) reception of RX window 1.
      * @return RF settings
      */
-    TTNRFSettings rx1Settings();
+    TTNRFSettings rx1Settings() { return getRFSettings(kTTNRx1Window); }
 
     /**
      * @brief Gets the RF settings of the last (or ongoing) reception of RX window 2.
      * @return RF settings
      */
-    TTNRFSettings rx2Settings();
+    TTNRFSettings rx2Settings() { return getRFSettings(kTTNRx2Window); }
 
     /**
      * @brief Gets the received signal strength indicator (RSSI).
@@ -398,12 +397,7 @@ public:
      * 
      * @return RSSI, in dBm
      */
-    int rssi();
-
-private:
-    TTNMessageCallback messageCallback;
-
-    bool joinCore();
+    int rssi() { return ttn_rssi(); }
 };
 
 #endif

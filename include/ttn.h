@@ -189,6 +189,20 @@ void ttn_reset(void);
 void ttn_configure_pins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, uint8_t rst, uint8_t dio0, uint8_t dio1);
 
 /**
+ * @brief Sets the frequency sub-band to be used.
+ * 
+ * For regions with sub-bands (USA, Australia), sets the sub-band to be used for uplink communication.
+ * For other regions, this function has no effect.
+ * 
+ * The sub-band must be set before joining or sending the first message.
+ * 
+ * If not set, it defaults to sub-band 2 as defined by TTN.
+ * 
+ * @param band band (between 1 and 8)
+ */
+void ttn_set_subband(int band);
+
+/**
  * @brief Sets the credentials needed to activate the device via OTAA, without activating it.
  * 
  * The provided device EUI, app EUI and app key are saved in non-volatile memory. Before

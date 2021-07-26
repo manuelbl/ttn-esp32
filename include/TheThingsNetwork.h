@@ -194,6 +194,20 @@ public:
     }
 
     /**
+     * @brief Sets the frequency sub-band to be used.
+     * 
+     * For regions with sub-bands (USA, Australia), sets the sub-band to be used for uplink communication.
+     * For other regions, this function has no effect.
+     * 
+     * The sub-band must be set before joining or sending the first message.
+     * 
+     * If not set, it defaults to sub-band 2 as defined by TTN.
+     * 
+     * @param band band (between 1 and 8)
+     */
+    void setSubband(int band) { ttn_set_subband(band); }
+
+    /**
      * @brief Sets the credentials needed to activate the device via OTAA, without activating it.
      * 
      * The provided device EUI, app EUI and app key are saved in non-volatile memory. Before

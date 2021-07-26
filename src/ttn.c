@@ -60,6 +60,7 @@ static ttn_message_cb message_callback;
 static ttn_waiting_reason_t waiting_reason = TTN_WAITING_NONE;
 static ttn_rf_settings_t last_rf_settings[4];
 static ttn_rx_tx_window_t current_rx_tx_window;
+static int subband = 1;
 
 static bool join_core(void);
 static void event_callback(void* user_data, ev_t event);
@@ -97,6 +98,11 @@ void ttn_configure_pins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, u
     lmic_event_queue = xQueueCreate(4, sizeof(ttn_lmic_event_t));
     ASSERT(lmic_event_queue != NULL);
     hal_esp32_start_lmic_task();
+}
+
+void ttn_set_subband(int band)
+{
+    subband = band;
 }
 
 void ttn_reset(void)
@@ -203,6 +209,11 @@ bool join_core()
     hal_esp32_enter_critical_section();
     xQueueReset(lmic_event_queue);
     waiting_reason = TTN_WAITING_FOR_JOIN;
+
+#if defined(CFG_us915) || defined(CFG_au915)
+    LMIC_selectSubBand(subband - 1);
+#endif
+
     LMIC_startJoining();
     hal_esp32_wake_up();
     hal_esp32_leave_critical_section();

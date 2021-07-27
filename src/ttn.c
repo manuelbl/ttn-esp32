@@ -211,7 +211,8 @@ bool join_core()
     waiting_reason = TTN_WAITING_FOR_JOIN;
 
 #if defined(CFG_us915) || defined(CFG_au915)
-    LMIC_selectSubBand(subband - 1);
+    if (subband != 0)
+        LMIC_selectSubBand(subband - 1);
 #endif
 
     LMIC_startJoining();

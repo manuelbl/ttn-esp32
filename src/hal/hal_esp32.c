@@ -509,7 +509,7 @@ void hal_esp32_stop_lmic_task(void)
 
 static hal_failure_handler_t* custom_hal_failure_handler = NULL;
 
-void hal_set_failure_handler(const hal_failure_handler_t* const handler)
+void hal_set_failure_handler(hal_failure_handler_t* const handler)
 {
     custom_hal_failure_handler = handler;
 }

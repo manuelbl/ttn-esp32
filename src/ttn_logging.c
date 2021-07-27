@@ -50,7 +50,7 @@ typedef struct {
 } TTNLogMessage;
 
 static void loggingTask(void* param);
-static void logFatal(const char* file, uint16_t line);
+static void logFatal(const char* const file, const uint16_t line);
 
 static void printMessage(TTNLogMessage* log);
 static void printFatalError(TTNLogMessage* log);

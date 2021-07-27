@@ -198,7 +198,7 @@ void ttn_configure_pins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, u
  * 
  * If not set, it defaults to sub-band 2 as defined by TTN.
  * 
- * @param band band (between 1 and 8)
+ * @param band band (0 for all bands, or value between 1 and 8)
  */
 void ttn_set_subband(int band);
 

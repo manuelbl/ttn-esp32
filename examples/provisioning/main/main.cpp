@@ -17,9 +17,11 @@
 
 #include "TheThingsNetwork.h"
 
+
 // NOTE:
 // The LoRaWAN frequency and the radio chip must be configured by running 'make menuconfig'.
 // Go to Components / The Things Network, select the appropriate values and save.
+
 
 // Pins and other resources
 #define TTN_SPI_HOST      HSPI_HOST

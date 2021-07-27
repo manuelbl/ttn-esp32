@@ -17,17 +17,21 @@
 
 #include "TheThingsNetwork.h"
 
+
 // NOTE:
-// The LoRaWAN frequency and the radio chip must be configured by running 'make menuconfig'.
+// The LoRaWAN frequency and the radio chip must be configured by running 'idf.py menuconfig'.
 // Go to Components / The Things Network, select the appropriate values and save.
 
-// Copy the below hex string from the "Device EUI" field
-// on your device's overview page in the TTN console.
-const char *devEui = "????????????????";
+// Copy the below hex strings from the TTN console (Applications > Your application > End devices
+// > Your device > Activation information)
 
-// Copy the below two lines from bottom of the same page
+// AppEUI (sometimes called JoinEUI)
 const char *appEui = "????????????????";
+// DevEUI
+const char *devEui = "????????????????";
+// AppKey
 const char *appKey = "????????????????????????????????";
+
 
 // Pins and other resources
 #define TTN_SPI_HOST      HSPI_HOST

@@ -202,7 +202,7 @@ bool join_core()
 {
     if (!ttn_provisioning_have_keys())
     {
-        ESP_LOGW(TAG, "Device EUI, App EUI and/or App key have not been provided");
+        ESP_LOGW(TAG, "DevEUI, AppEUI/JoinEUI and/or AppKey have not been provided");
         return false;
     }
 

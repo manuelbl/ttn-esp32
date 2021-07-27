@@ -378,7 +378,7 @@ bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const c
 
     if (incl_dev_eui && (strlen(dev_eui) != 16 || !hex_str_to_bin(dev_eui, buf_dev_eui, 8)))
     {
-        ESP_LOGW(TAG, "Invalid device EUI: %s", dev_eui);
+        ESP_LOGW(TAG, "Invalid DevEUI: %s", dev_eui);
         return false;
     }
 
@@ -387,7 +387,7 @@ bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const c
 
     if (strlen(app_eui) != 16 || !hex_str_to_bin(app_eui, buf_app_eui, 8))
     {
-        ESP_LOGW(TAG, "Invalid application EUI: %s", app_eui);
+        ESP_LOGW(TAG, "Invalid AppEUI/JoinEUI: %s", app_eui);
         return false;
     }
 
@@ -405,7 +405,6 @@ bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const c
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
     have_keys = !is_all_zeros(global_dev_eui, sizeof(global_dev_eui))
-        && !is_all_zeros(global_app_eui, sizeof(global_app_eui))
         && !is_all_zeros(global_app_key, sizeof(global_app_key));
 
     return true;
@@ -442,7 +441,7 @@ bool ttn_provisioning_save_keys()
     ESP_ERROR_CHECK(res);
     
     result = true;
-    ESP_LOGI(TAG, "Dev and app EUI and app key saved in NVS storage");
+    ESP_LOGI(TAG, "DevEUI, AppEUI/JoinEUI and AppKey saved in NVS storage");
 
 done:
     nvs_close(handle);
@@ -482,16 +481,15 @@ bool ttn_provisioning_restore_keys(bool silent)
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
     have_keys = !is_all_zeros(global_dev_eui, sizeof(global_dev_eui))
-        && !is_all_zeros(global_app_eui, sizeof(global_app_eui))
         && !is_all_zeros(global_app_key, sizeof(global_app_key));
 
     if (have_keys)
     {
-       ESP_LOGI(TAG, "Dev and app EUI and app key have been restored from NVS storage");
+       ESP_LOGI(TAG, "DevEUI, AppEUI/JoinEUI and AppKey have been restored from NVS storage");
     }
     else
     {
-        ESP_LOGW(TAG, "Dev and app EUI and app key are invalid (zeroes only)");
+        ESP_LOGW(TAG, "DevEUI or DevEUI is invalid (zeroes only)");
     }
 
 done:

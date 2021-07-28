@@ -22,6 +22,7 @@
 
 #define TAG "ttn"
 
+#define DEFAULT_MAX_TX_POWER -1000
 
 /**
  * @brief Reason the user code is waiting
@@ -55,14 +56,18 @@ typedef struct {
     size_t message_size;
 } ttn_lmic_event_t;
 
+static bool is_started;
 static QueueHandle_t lmic_event_queue;
 static ttn_message_cb message_callback;
 static ttn_waiting_reason_t waiting_reason = TTN_WAITING_NONE;
 static ttn_rf_settings_t last_rf_settings[4];
 static ttn_rx_tx_window_t current_rx_tx_window;
 static int subband = 1;
+static ttn_data_rate_t join_data_rate = TTN_DR_JOIN_DEFAULT;
+static int max_tx_power = DEFAULT_MAX_TX_POWER;
 
 static bool join_core(void);
+static void config_rf_params(void);
 static void event_callback(void* user_data, ev_t event);
 static void message_received_callback(void *user_data, uint8_t port, const uint8_t *message, size_t message_size);
 static void message_transmitted_callback(void *user_data, int success);
@@ -198,7 +203,23 @@ bool ttn_join_provisioned(void)
     return join_core();
 }
 
-bool join_core()
+// Called immediately before sending join request message
+void config_rf_params(void)
+{
+#if defined(CFG_us915) || defined(CFG_au915)
+    if (subband != 0)
+        LMIC_selectSubBand(subband - 1);
+#endif
+
+    if (join_data_rate != TTN_DR_JOIN_DEFAULT || max_tx_power != DEFAULT_MAX_TX_POWER)
+    {
+        dr_t dr = join_data_rate == TTN_DR_JOIN_DEFAULT ? LMIC.datarate : (dr_t)join_data_rate;
+        s1_t txpow = max_tx_power == DEFAULT_MAX_TX_POWER ? LMIC.adrTxPow : max_tx_power;
+        LMIC_setDrTxpow(dr, txpow);
+    }
+}
+
+bool join_core(void)
 {
     if (!ttn_provisioning_have_keys())
     {
@@ -206,22 +227,21 @@ bool join_core()
         return false;
     }
 
+    is_started = true;
     hal_esp32_enter_critical_section();
     xQueueReset(lmic_event_queue);
     waiting_reason = TTN_WAITING_FOR_JOIN;
 
-#if defined(CFG_us915) || defined(CFG_au915)
-    if (subband != 0)
-        LMIC_selectSubBand(subband - 1);
-#endif
-
     LMIC_startJoining();
+    config_rf_params();
+
     hal_esp32_wake_up();
     hal_esp32_leave_critical_section();
 
     ttn_lmic_event_t event;
     xQueueReceive(lmic_event_queue, &event, portMAX_DELAY);
-    return event.event == TTN_EVNT_JOIN_COMPLETED;
+    is_started = event.event == TTN_EVNT_JOIN_COMPLETED;
+    return is_started;
 }
 
 ttn_response_code_t ttn_transmit_message(const uint8_t *payload, size_t length, ttn_port_t port, bool confirm)
@@ -290,9 +310,39 @@ bool ttn_adr_enabled(void)
     return LMIC.adrEnabled != 0;
 }
 
-void ttn_set_adr_nabled(bool enabled)
+void ttn_set_adr_enabled(bool enabled)
 {
+    hal_esp32_enter_critical_section();
     LMIC_setAdrMode(enabled);
+    hal_esp32_leave_critical_section();
+}
+
+void ttn_set_data_rate(ttn_data_rate_t data_rate)
+{
+    if (is_started)
+    {
+        hal_esp32_enter_critical_section();
+        LMIC_setDrTxpow(data_rate, LMIC.adrTxPow);
+        hal_esp32_leave_critical_section();
+    }
+    else
+    {
+        join_data_rate = data_rate;
+    }
+}
+
+void ttn_set_max_tx_pow(int tx_pow)
+{
+    if (is_started)
+    {
+        hal_esp32_enter_critical_section();
+        LMIC_setDrTxpow(LMIC.datarate, tx_pow);
+        hal_esp32_leave_critical_section();
+    }
+    else
+    {
+        max_tx_power = tx_pow;
+    }
 }
 
 ttn_rf_settings_t ttn_getrf_settings(ttn_rx_tx_window_t window)

@@ -99,6 +99,10 @@ extern "C" void app_main(void)
     // Register callback for received messages
     ttn.onMessage(messageReceived);
 
+//    ttn.setAdrEnabled(false);
+//    ttn.setDataRate(kTTNDataRate_US915_SF7);
+//    ttn.setMaxTxPower(14);
+
     printf("Joining...\n");
     if (ttn.join())
     {

@@ -105,15 +105,272 @@ enum TTNBandwidth
     /**
      * @brief Bandwidth of 125 kHz
      */
-    kTTNBW125 = TTN_BW125,
+    kTTNBW125 = TTN_BW_125,
     /**
      * @brief Bandwidth of 250 kHz
      */
-    kTTNBW250 = TTN_BW250,
+    kTTNBW250 = TTN_BW_250,
     /**
      * @brief Bandwidth of 500 kHz
      */
-    kTTNBW500 = TTN_BW500
+    kTTNBW500 = TTN_BW_500
+};
+
+
+/**
+ * @brief Data Rate
+ * 
+ * Note that the spreading factor, bandwidth, bit rate and maximum message
+ * size associated with each data rate depends on the region.
+ */
+enum TTNDataRate
+{
+    /**
+     * @brief Data rate for region AS923 using SF12 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF12 = 0,
+    /**
+     * @brief Data rate for region AS923 using SF11 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF11 = 1,
+    /**
+     * @brief Data rate for region AS923 using SF10 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF10 = 2,
+    /**
+     * @brief Data rate for region AS923 using SF9 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF9 = 3,
+    /**
+     * @brief Data rate for region AS923 using SF8 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF8 = 4,
+    /**
+     * @brief Data rate for region AS923 using SF7 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF7_BW125 = 5,
+    /**
+     * @brief Data rate for region AS923 using SF7 and 250 kHz bandwidth.
+     */
+    kTTNDataRate_AS923_SF7_BW250 = 6,
+    /**
+     * @brief Data rate for region AS923 using FSK and 50 kpbs.
+     */
+    kTTNDataRate_AS923_FSK = 7,
+
+    /**
+     * @brief Data rate for region AU915 using SF12 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF12 = 0,
+    /**
+     * @brief Data rate for region AU915 using SF11 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF11 = 1,
+    /**
+     * @brief Data rate for region AU915 using SF10 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF10 = 2,
+    /**
+     * @brief Data rate for region AU915 using SF9 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF9 = 3,
+    /**
+     * @brief Data rate for region AU915 using SF8 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF8 = 4,
+    /**
+     * @brief Data rate for region AU915 using SF7 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF7 = 5,
+    /**
+     * @brief Data rate for region AU915 using SF8 and 500 kHz bandwidth.
+     */
+    kTTNDataRate_AU915_SF8_BW500 = 6,
+    /**
+     * @brief Data rate for region AU915 using SF12 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_AU915_SF12_BW500 = 8,
+    /**
+     * @brief Data rate for region AU915 using SF11 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_AU915_SF11_BW500 = 9,
+    /**
+     * @brief Data rate for region AU915 using SF10 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_AU915_SF10_BW500 = 10,
+    /**
+     * @brief Data rate for region AU915 using SF9 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_AU915_SF9_BW500 = 11,
+    /**
+     * @brief Data rate for region AU915 using SF8 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_AU915_SF8_BW500_DR12 = 12,
+    /**
+     * @brief Data rate for region AU915 using SF7 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_AU915_SF7_BW500 = 13,
+
+    /**
+     * @brief Data rate for region EU868 using SF12 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF12 = 0,
+    /**
+     * @brief Data rate for region EU868 using SF11 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF11 = 1,
+    /**
+     * @brief Data rate for region EU868 using SF10 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF10 = 2,
+    /**
+     * @brief Data rate for region EU868 using SF9 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF9 = 3,
+    /**
+     * @brief Data rate for region EU868 using SF8 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF8 = 4,
+    /**
+     * @brief Data rate for region EU868 using SF7 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF7_BW125 = 5,
+    /**
+     * @brief Data rate for region EU868 using SF7 and 250 kHz bandwidth.
+     */
+    kTTNDataRate_EU868_SF7_BW250 = 6,
+    /**
+     * @brief Data rate for region EU868 using FSK and 50 kpbs.
+     */
+    kTTNDataRate_EU868_FSK = 7,
+
+    /**
+     * @brief Data rate for region IN866 using SF12 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_IN866_SF12 = 0,
+    /**
+     * @brief Data rate for region IN866 using SF11 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_IN866_SF11 = 1,
+    /**
+     * @brief Data rate for region IN866 using SF10 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_IN866_SF10 = 2,
+    /**
+     * @brief Data rate for region IN866 using SF9 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_IN866_SF9 = 3,
+    /**
+     * @brief Data rate for region IN866 using SF8 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_IN866_SF8 = 4,
+    /**
+     * @brief Data rate for region IN866 using SF7 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_IN866_SF7 = 5,
+    /**
+     * @brief Data rate for region IN866 using FSK and 50 kpbs.
+     */
+    kTTNDataRate_IN866_FSK = 7,
+
+    /**
+     * @brief Data rate for region KR920 using SF12 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_KR920_SF12 = 0,
+    /**
+     * @brief Data rate for region KR920 using SF11 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_KR920_SF11 = 1,
+    /**
+     * @brief Data rate for region KR920 using SF10 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_KR920_SF10 = 2,
+    /**
+     * @brief Data rate for region KR920 using SF9 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_KR920_SF9 = 3,
+    /**
+     * @brief Data rate for region KR920 using SF8 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_KR920_SF8 = 4,
+    /**
+     * @brief Data rate for region KR920 using SF7 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_KR920_SF7 = 5,
+
+    /**
+     * @brief Data rate for region US915 using SF10 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_US915_SF10 = 0,
+    /**
+     * @brief Data rate for region US915 using SF9 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_US915_SF9 = 1,
+    /**
+     * @brief Data rate for region US915 using SF8 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_US915_SF8 = 2,
+    /**
+     * @brief Data rate for region US915 using SF7 and 125 kHz bandwidth.
+     */
+    kTTNDataRate_US915_SF7 = 3,
+    /**
+     * @brief Data rate for region US915 using SF8 and 500 kHz bandwidth.
+     */
+    kTTNDataRate_US915_SF8_BW500 = 4,
+    /**
+     * @brief Data rate for region US915 using SF12 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_US915_SF12_BW500 = 8,
+    /**
+     * @brief Data rate for region US915 using SF11 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_US915_SF11_BW500 = 9,
+    /**
+     * @brief Data rate for region US915 using SF10 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_US915_SF10_BW500 = 10,
+    /**
+     * @brief Data rate for region US915 using SF9 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_US915_SF9_BW500 = 11,
+    /**
+     * @brief Data rate for region US915 using SF8 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_US915_SF8_BW500_DR12 = 12,
+    /**
+     * @brief Data rate for region US915 using SF7 and 500 kHz bandwidth.
+     * 
+     * Reserved for future applications.
+     */
+    kTTNDataRate_US915_SF7_BW500 = 13,
+
+    /**
+     * @brief Default data rate for joining
+     */
+    kTTNDRJoinDdefault
 };
 
 
@@ -358,6 +615,27 @@ public:
      * @param enabled `true` to enable, `false` to disable
      */ 
     void setAdrEnabled(bool enabled) { ttn_set_adr_enabled(enabled); }
+
+    /**
+     * @brief Sets the transmission data rate (i.e. the data rate for uplink messages).
+     * 
+     * If ADR is enabled, it's is used as the initial data rate and later adjusted depending
+     * on the RF conditions. If ADR is disabled, it is used for all uplink messages.
+     * 
+     * @param data_rate data rate (use constants kTTNDataRate_xx)
+     */
+    void setDataRate(TTNDataRate data_rate) { ttn_set_data_rate(static_cast<ttn_data_rate_t>(data_rate)); }
+
+    /**
+     * @brief Sets the maximum power for transmission
+     * 
+     * The power is specified in dBm and sets the power emitted by the radio.
+     * If the antenna has a gain, it must be substracted fro the specified value to
+     * achieve the correct transmission power.
+     * 
+     * @param tx_pow power, in dBm
+     */
+    void setMaxTxPower(int tx_pow) { ttn_set_max_tx_pow(tx_pow); }
 
     /**
      * @brief Stops all activies and shuts down the RF module and the background tasks.

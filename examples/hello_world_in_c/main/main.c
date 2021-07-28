@@ -100,6 +100,10 @@ void app_main(void)
     // Register callback for received messages
     ttn_on_message(messageReceived);
 
+    // ttn_set_adr_enabled(false);
+    // ttn_set_data_rate(TTN_DR_US915_SF7);
+    // ttn_set_max_tx_pow(14);
+
     printf("Joining...\n");
     if (ttn_join_provisioned())
     {

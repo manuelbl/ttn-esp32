@@ -62,7 +62,7 @@ static ttn_message_cb message_callback;
 static ttn_waiting_reason_t waiting_reason = TTN_WAITING_NONE;
 static ttn_rf_settings_t last_rf_settings[4];
 static ttn_rx_tx_window_t current_rx_tx_window;
-static int subband = 1;
+static int subband = 2;
 static ttn_data_rate_t join_data_rate = TTN_DR_JOIN_DEFAULT;
 static int max_tx_power = DEFAULT_MAX_TX_POWER;
 

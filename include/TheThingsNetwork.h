@@ -10,11 +10,20 @@
  * High-level C++ API for ttn-esp32.
  *******************************************************************************/
 
+/**
+ * @file TheThingsNetwork.h
+ */
+
 #ifndef _THETHINGSNETWORK_H_
 #define _THETHINGSNETWORK_H_
 
 #include "ttn.h"
 
+/**
+ * @brief Integer data type for specified the port of an uplink or downlink message.
+ * 
+ * @deprecated Use @ref ttn_port_t instead.
+ */
 typedef ttn_port_t port_t;
 
 /**
@@ -22,9 +31,13 @@ typedef ttn_port_t port_t;
  */
 enum TTNResponseCode
 {
+    /** @brief Transmission failed error */
     kTTNErrorTransmissionFailed = TTN_ERROR_TRANSMISSION_FAILED,
+    /** @brief Unexpected or internal error */
     kTTNErrorUnexpected = TTN_ERROR_UNEXPECTED,
+    /** @brief Successful transmission of an uplink message */
     kTTNSuccessfulTransmission = TTN_SUCCESSFUL_TRANSMISSION,
+    /** @brief Successful receipt of a downlink message */
     kTTNSuccessfulReceive = TTN_SUCCESSFUL_RECEIVE
 };
 
@@ -401,7 +414,7 @@ struct TTNRFSettings
  * @param length   number of received bytes
  * @param port     port the message was received on
  */
-typedef void (*TTNMessageCallback)(const uint8_t* payload, size_t length, port_t port);
+typedef void (*TTNMessageCallback)(const uint8_t* payload, size_t length, ttn_port_t port);
 
 /**
  * @brief TTN device
@@ -559,7 +572,7 @@ public:
      * @param confirm  flag indicating if a confirmation should be requested. Defaults to `false`
      * @return `kTTNSuccessfulTransmission` for successful transmission, `kTTNErrorTransmissionFailed` for failed transmission, `kTTNErrorUnexpected` for unexpected error
      */
-    TTNResponseCode transmitMessage(const uint8_t *payload, size_t length, port_t port = 1, bool confirm = false)
+    TTNResponseCode transmitMessage(const uint8_t *payload, size_t length, ttn_port_t port = 1, bool confirm = false)
     {
         return static_cast<TTNResponseCode>(ttn_transmit_message(payload, length, port, confirm));
     }

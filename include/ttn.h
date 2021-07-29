@@ -10,6 +10,12 @@
  * High-level C API for ttn-esp32.
  *******************************************************************************/
 
+/**
+ * @file ttn.h
+ * 
+ * C interface for ttn-esp32
+ */
+
 #ifndef TTN_C_H
 #define TTN_C_H
 
@@ -28,6 +34,9 @@ extern "C" {
 #define TTN_NOT_CONNECTED 0xff
 
 
+/**
+ * @brief Integer data type for specifiying the port of an uplink or downlink message.
+ */
 typedef uint8_t ttn_port_t;
 
 /**

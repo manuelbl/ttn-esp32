@@ -91,7 +91,7 @@ void sendMessages(void* pvParameter)
     }
 }
 
-void messageReceived(const uint8_t* message, size_t length, port_t port)
+void messageReceived(const uint8_t* message, size_t length, ttn_port_t port)
 {
     printf("Message of %d bytes received on port %d:", length, port);
     for (int i = 0; i < length; i++)

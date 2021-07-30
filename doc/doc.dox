@@ -1,0 +1,21 @@
+/*!
+\mainpage ttn-esp32 API Documentation 
+
+  ttn-esp32 is a C and C++ library for the ESP-IDF (ESP32) framework
+  for The Things Network library end devices using Semtech SX127x chips.
+
+
+\section cplusplus C++ API
+
+  \ref TheThingsNetwork class
+
+  \ref TTNRFSettings struct
+
+
+\section c C API
+
+  \ref c_api
+
+  \ref ttn_rf_settings_t struct
+
+*/

@@ -34,7 +34,7 @@ All boards with Semtech SX127x chips, RFM9x and compatibles are supported. It in
 
 ## API Documentation
 
-See the Wiki page: [API Documentation](https://github.com/manuelbl/ttn-esp32/wiki/API-Documentation)
+See [API Documentation](https://codecrete.net/ttn-esp32/) for both the C ad C++ API
 
 ## More information
 

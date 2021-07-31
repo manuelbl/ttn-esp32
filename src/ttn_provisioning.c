@@ -1,9 +1,9 @@
 /*******************************************************************************
- * 
+ *
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
- * 
+ *
  * Copyright (c) 2018-2021 Manuel Bleichenbacher
- * 
+ *
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
@@ -11,14 +11,14 @@
  *******************************************************************************/
 
 #include "ttn_provisioning.h"
-#include "freertos/FreeRTOS.h"
 #include "driver/uart.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
-#include "nvs_flash.h"
-#include "lmic/lmic.h"
+#include "freertos/FreeRTOS.h"
 #include "hal/hal_esp32.h"
+#include "lmic/lmic.h"
+#include "nvs_flash.h"
 
 #if defined(TTN_HAS_AT_COMMANDS)
 #define UART_NUM CONFIG_TTN_PROVISION_UART_NUM
@@ -32,7 +32,7 @@
 #define NVS_FLASH_KEY_APP_KEY "appKey"
 
 #if defined(TTN_HAS_AT_COMMANDS)
-static void provisioning_task(void* pvParameter);
+static void provisioning_task(void *pvParameter);
 static void add_line_data(int num_bytes);
 static void detect_line_end(int start_at);
 static void process_line(void);
@@ -43,16 +43,16 @@ static void config_uart(void);
 #endif
 
 static bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const char *app_key);
-static bool read_nvs_value(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent);
-static bool write_nvs_value(nvs_handle handle, const char* key, const uint8_t* data, size_t len);
+static bool read_nvs_value(nvs_handle handle, const char *key, uint8_t *data, size_t expected_length, bool silent);
+static bool write_nvs_value(nvs_handle handle, const char *key, const uint8_t *data, size_t len);
 
 static bool hex_str_to_bin(const char *hex, uint8_t *buf, int len);
 static int hex_tuple_to_byte(const char *hex);
 static int hex_digit_to_val(char ch);
-static void bin_to_hex_str(const uint8_t* buf, int len, char* hex);
+static void bin_to_hex_str(const uint8_t *buf, int len, char *hex);
 static char val_to_hex_digit(int val);
-static void swap_bytes(uint8_t* buf, int len);
-static bool is_all_zeros(const uint8_t* buf, int len);
+static void swap_bytes(uint8_t *buf, int len);
+static bool is_all_zeros(const uint8_t *buf, int len);
 
 static uint8_t global_dev_eui[8];
 static uint8_t global_app_eui[8];
@@ -62,12 +62,11 @@ static bool have_keys = false;
 
 #if defined(TTN_HAS_AT_COMMANDS)
 static QueueHandle_t uart_queue;
-static char* line_buf;
+static char *line_buf;
 static int line_length;
 static uint8_t last_line_end_char;
 static bool quit_task;
 #endif
-
 
 // --- LMIC callbacks
 
@@ -75,13 +74,13 @@ static bool quit_task;
 // When copying an EUI from ttnctl output, this means to reverse the bytes.
 // For TTN issued EUIs the last bytes should be 0xD5, 0xB3, 0x70.
 // The order is swapped in provisioning_decode_keys().
-void os_getArtEui (u1_t* buf)
+void os_getArtEui(u1_t *buf)
 {
     memcpy(buf, global_app_eui, 8);
 }
 
 // This should also be in little endian format, see above.
-void os_getDevEui (u1_t* buf)
+void os_getDevEui(u1_t *buf)
 {
     memcpy(buf, global_dev_eui, 8);
 }
@@ -89,7 +88,7 @@ void os_getDevEui (u1_t* buf)
 // This key should be in big endian format (or, since it is not really a number
 // but a block of memory, endianness does not really apply). In practice, a key
 // taken from ttnctl can be copied as-is.
-void os_getDevKey (u1_t* buf)
+void os_getDevKey(u1_t *buf)
 {
     memcpy(buf, global_app_key, 16);
 }
@@ -99,7 +98,6 @@ void os_getDevKey (u1_t* buf)
 void ttn_provisioning_init(void)
 {
 }
-
 
 // --- Provisioning task
 
@@ -117,9 +115,9 @@ void ttn_provisioning_start_task(void)
     xTaskCreate(provisioning_task, "ttn_provision", 2048, NULL, 1, NULL);
 }
 
-void provisioning_task(void* pvParameter)
+void provisioning_task(void *pvParameter)
 {
-    line_buf = (char*)malloc(MAX_LINE_LENGTH + 1);
+    line_buf = (char *)malloc(MAX_LINE_LENGTH + 1);
     line_length = 0;
 
     uart_event_t event;
@@ -133,18 +131,18 @@ void provisioning_task(void* pvParameter)
 
         switch (event.type)
         {
-            case UART_DATA:
-                add_line_data(event.size);
-                break;
+        case UART_DATA:
+            add_line_data(event.size);
+            break;
 
-            case UART_FIFO_OVF:
-            case UART_BUFFER_FULL:
-                uart_flush_input(UART_NUM);
-                xQueueReset(uart_queue);
-                break;
+        case UART_FIFO_OVF:
+        case UART_BUFFER_FULL:
+            uart_flush_input(UART_NUM);
+            xQueueReset(uart_queue);
+            break;
 
-            default:
-                break;
+        default:
+            break;
         }
     }
 
@@ -160,8 +158,8 @@ top:
     n = num_bytes;
     if (line_length + n > MAX_LINE_LENGTH)
         n = MAX_LINE_LENGTH - line_length;
-    
-    uart_read_bytes(UART_NUM, (uint8_t*)line_buf + line_length, n, portMAX_DELAY);
+
+    uart_read_bytes(UART_NUM, (uint8_t *)line_buf + line_length, n, portMAX_DELAY);
     int start_at = line_length;
     line_length += n;
 
@@ -239,7 +237,7 @@ void process_line(void)
     }
     else if (strncmp(line_buf, "AT+PROV=", 8) == 0)
     {
-        is_ok  = strlen(line_buf) == 74 && line_buf[24] == '-' && line_buf[41] == '-';
+        is_ok = strlen(line_buf) == 74 && line_buf[24] == '-' && line_buf[41] == '-';
         if (is_ok)
         {
             line_buf[24] = 0;
@@ -271,7 +269,8 @@ void process_line(void)
         ESP_ERROR_CHECK(err);
 
         bin_to_hex_str(mac, 6, hexbuf);
-        for (int i = 0; i < 12; i += 2) {
+        for (int i = 0; i < 12; i += 2)
+        {
             if (i > 0)
                 uart_write_bytes(UART_NUM, ":", 1);
             uart_write_bytes(UART_NUM, hexbuf + i, 2);
@@ -287,10 +286,11 @@ void process_line(void)
         ESP_ERROR_CHECK(err);
 
         bin_to_hex_str(mac, 6, hexbuf);
-        for (int i = 0; i < 12; i += 2) {
+        for (int i = 0; i < 12; i += 2)
+        {
             uart_write_bytes(UART_NUM, hexbuf + i, 2);
             if (i == 4)
-              uart_write_bytes(UART_NUM, "FFFE", 4);
+                uart_write_bytes(UART_NUM, "FFFE", 4);
         }
         uart_write_bytes(UART_NUM, "\r\n", 2);
     }
@@ -316,29 +316,26 @@ void process_line(void)
 
 #endif
 
-
 #if defined(TTN_CONFIG_UART)
 
 void config_uart(void)
 {
     esp_err_t err;
 
-    uart_config_t uart_config = {
-        .baud_rate = CONFIG_TTN_PROVISION_UART_BAUDRATE,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
-    };
+    uart_config_t uart_config = {.baud_rate = CONFIG_TTN_PROVISION_UART_BAUDRATE,
+                                 .data_bits = UART_DATA_8_BITS,
+                                 .parity = UART_PARITY_DISABLE,
+                                 .stop_bits = UART_STOP_BITS_1,
+                                 .flow_ctrl = UART_HW_FLOWCTRL_DISABLE};
     err = uart_param_config(UART_NUM, &uart_config);
     ESP_ERROR_CHECK(err);
 
-    err = uart_set_pin(UART_NUM, CONFIG_TTN_PROVISION_UART_TX_GPIO, CONFIG_TTN_PROVISION_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    err = uart_set_pin(UART_NUM, CONFIG_TTN_PROVISION_UART_TX_GPIO, CONFIG_TTN_PROVISION_UART_RX_GPIO,
+                       UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     ESP_ERROR_CHECK(err);
 }
 
 #endif
-
 
 // --- Key handling
 
@@ -357,7 +354,7 @@ bool ttn_provisioning_from_mac(const char *app_eui, const char *app_key)
     uint8_t mac[6];
     esp_err_t err = esp_efuse_mac_get_default(mac);
     ESP_ERROR_CHECK(err);
-    
+
     global_dev_eui[7] = mac[0];
     global_dev_eui[6] = mac[1];
     global_dev_eui[5] = mac[2];
@@ -404,12 +401,11 @@ bool decode(bool incl_dev_eui, const char *dev_eui, const char *app_eui, const c
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
-    have_keys = !is_all_zeros(global_dev_eui, sizeof(global_dev_eui))
-        && !is_all_zeros(global_app_key, sizeof(global_app_key));
+    have_keys =
+        !is_all_zeros(global_dev_eui, sizeof(global_dev_eui)) && !is_all_zeros(global_app_key, sizeof(global_app_key));
 
     return true;
 }
-
 
 // --- Non-volatile storage
 
@@ -430,16 +426,16 @@ bool ttn_provisioning_save_keys()
 
     if (!write_nvs_value(handle, NVS_FLASH_KEY_DEV_EUI, global_dev_eui, sizeof(global_dev_eui)))
         goto done;
-        
+
     if (!write_nvs_value(handle, NVS_FLASH_KEY_APP_EUI, global_app_eui, sizeof(global_app_eui)))
         goto done;
-        
+
     if (!write_nvs_value(handle, NVS_FLASH_KEY_APP_KEY, global_app_key, sizeof(global_app_key)))
         goto done;
 
     res = nvs_commit(handle);
     ESP_ERROR_CHECK(res);
-    
+
     result = true;
     ESP_LOGI(TAG, "DevEUI, AppEUI/JoinEUI and AppKey saved in NVS storage");
 
@@ -453,7 +449,7 @@ bool ttn_provisioning_restore_keys(bool silent)
     uint8_t buf_dev_eui[8];
     uint8_t buf_app_eui[8];
     uint8_t buf_app_key[16];
-    
+
     nvs_handle handle = 0;
     esp_err_t res = nvs_open(NVS_FLASH_PARTITION, NVS_READONLY, &handle);
     if (res == ESP_ERR_NVS_NOT_FOUND)
@@ -480,12 +476,12 @@ bool ttn_provisioning_restore_keys(bool silent)
     memcpy(global_app_eui, buf_app_eui, sizeof(global_app_eui));
     memcpy(global_app_key, buf_app_key, sizeof(global_app_key));
 
-    have_keys = !is_all_zeros(global_dev_eui, sizeof(global_dev_eui))
-        && !is_all_zeros(global_app_key, sizeof(global_app_key));
+    have_keys =
+        !is_all_zeros(global_dev_eui, sizeof(global_dev_eui)) && !is_all_zeros(global_app_key, sizeof(global_app_key));
 
     if (have_keys)
     {
-       ESP_LOGI(TAG, "DevEUI, AppEUI/JoinEUI and AppKey have been restored from NVS storage");
+        ESP_LOGI(TAG, "DevEUI, AppEUI/JoinEUI and AppKey have been restored from NVS storage");
     }
     else
     {
@@ -497,7 +493,7 @@ done:
     return true;
 }
 
-bool read_nvs_value(nvs_handle handle, const char* key, uint8_t* data, size_t expected_length, bool silent)
+bool read_nvs_value(nvs_handle handle, const char *key, uint8_t *data, size_t expected_length, bool silent)
 {
     size_t size = expected_length;
     esp_err_t res = nvs_get_blob(handle, key, data, &size);
@@ -517,29 +513,28 @@ bool read_nvs_value(nvs_handle handle, const char* key, uint8_t* data, size_t ex
             ESP_LOGW(TAG, "No NVS data found for %s", key);
         return false;
     }
-    
+
     ESP_ERROR_CHECK(res);
     return false;
 }
 
-bool write_nvs_value(nvs_handle handle, const char* key, const uint8_t* data, size_t len)
+bool write_nvs_value(nvs_handle handle, const char *key, const uint8_t *data, size_t len)
 {
     uint8_t buf[16];
     if (read_nvs_value(handle, key, buf, len, true) && memcmp(buf, data, len) == 0)
         return true; // unchanged
-    
+
     esp_err_t res = nvs_set_blob(handle, key, data, len);
     ESP_ERROR_CHECK(res);
 
     return res == ESP_OK;
 }
 
-
 // --- Helper functions ---
 
 bool hex_str_to_bin(const char *hex, uint8_t *buf, int len)
 {
-    const char* ptr = hex;
+    const char *ptr = hex;
     for (int i = 0; i < len; i++)
     {
         int val = hex_tuple_to_byte(ptr);
@@ -573,7 +568,7 @@ int hex_digit_to_val(char ch)
     return -1;
 }
 
-void bin_to_hex_str(const uint8_t* buf, int len, char* hex)
+void bin_to_hex_str(const uint8_t *buf, int len, char *hex)
 {
     for (int i = 0; i < len; i++)
     {
@@ -590,10 +585,10 @@ char val_to_hex_digit(int val)
     return "0123456789ABCDEF"[val];
 }
 
-void swap_bytes(uint8_t* buf, int len)
+void swap_bytes(uint8_t *buf, int len)
 {
-    uint8_t* p1 = buf;
-    uint8_t* p2 = buf + len - 1;
+    uint8_t *p1 = buf;
+    uint8_t *p2 = buf + len - 1;
     while (p1 < p2)
     {
         uint8_t t = *p1;
@@ -604,7 +599,7 @@ void swap_bytes(uint8_t* buf, int len)
     }
 }
 
-bool is_all_zeros(const uint8_t* buf, int len)
+bool is_all_zeros(const uint8_t *buf, int len)
 {
     for (int i = 0; i < len; i++)
         if (buf[i] != 0)

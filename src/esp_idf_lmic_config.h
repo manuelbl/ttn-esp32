@@ -1,9 +1,9 @@
 /*******************************************************************************
- * 
+ *
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
- * 
+ *
  * Copyright (c) 2018 Manuel Bleichenbacher
- * 
+ *
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
@@ -17,7 +17,8 @@
 #elif defined(CONFIG_TTN_LORA_FREQ_US_915)
 #define CFG_us915 1
 #elif defined(CONFIG_TTN_LORA_FREQ_AU_921)
-#   warning "CONFIG_TTN_LORA_FREQ_AU_921 was deprecated in favour of CONFIG_TTN_LORA_FREQ_AU_921. Support for CONFIG_TTN_LORA_FREQ_AU_921 will be removed in the future."
+#warning                                                                                                               \
+    "CONFIG_TTN_LORA_FREQ_AU_921 was deprecated in favour of CONFIG_TTN_LORA_FREQ_AU_921. Support for CONFIG_TTN_LORA_FREQ_AU_921 will be removed in the future."
 #define CFG_au915 1
 #elif defined(CONFIG_TTN_LORA_FREQ_AU_915)
 #define CFG_au915 1
@@ -49,7 +50,6 @@
 #define TTN_CONFIG_UART 1
 #endif
 #endif
-
 
 // 16 μs per tick
 // LMIC requires ticks to be 15.5μs - 100 μs long

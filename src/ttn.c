@@ -1,24 +1,23 @@
 /*******************************************************************************
- * 
+ *
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
- * 
+ *
  * Copyright (c) 2018-2021 Manuel Bleichenbacher
- * 
+ *
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
  * High-level C API for ttn-esp32.
  *******************************************************************************/
 
-#include "lmic/lmic.h"
 #include "ttn.h"
-#include "ttn_provisioning.h"
-#include "ttn_logging.h"
-#include "hal/hal_esp32.h"
-#include "freertos/FreeRTOS.h"
 #include "esp_event.h"
 #include "esp_log.h"
-
+#include "freertos/FreeRTOS.h"
+#include "hal/hal_esp32.h"
+#include "lmic/lmic.h"
+#include "ttn_logging.h"
+#include "ttn_provisioning.h"
 
 #define TAG "ttn"
 
@@ -37,7 +36,8 @@ typedef enum
 /**
  * @brief Event type
  */
-typedef enum {
+typedef enum
+{
     TTN_EVENT_NONE,
     TTN_EVNT_JOIN_COMPLETED,
     TTN_EVENT_JOIN_FAILED,
@@ -49,10 +49,11 @@ typedef enum {
 /**
  * @brief Event message sent from LMIC task to waiting client task
  */
-typedef struct {
+typedef struct
+{
     ttn_event_t event;
     uint8_t port;
-    const uint8_t* message;
+    const uint8_t *message;
     size_t message_size;
 } ttn_lmic_event_t;
 
@@ -68,12 +69,11 @@ static int max_tx_power = DEFAULT_MAX_TX_POWER;
 
 static bool join_core(void);
 static void config_rf_params(void);
-static void event_callback(void* user_data, ev_t event);
+static void event_callback(void *user_data, ev_t event);
 static void message_received_callback(void *user_data, uint8_t port, const uint8_t *message, size_t message_size);
 static void message_transmitted_callback(void *user_data, int success);
-static void save_rf_settings(ttn_rf_settings_t* rf_settings);
-static void clear_rf_settings(ttn_rf_settings_t* rf_settings);
-
+static void save_rf_settings(ttn_rf_settings_t *rf_settings);
+static void clear_rf_settings(ttn_rf_settings_t *rf_settings);
 
 void ttn_init(void)
 {
@@ -140,7 +140,7 @@ bool ttn_provision(const char *dev_eui, const char *app_eui, const char *app_key
 {
     if (!ttn_provisioning_decode_keys(dev_eui, app_eui, app_key))
         return false;
-    
+
     return ttn_provisioning_save_keys();
 }
 
@@ -148,10 +148,9 @@ bool ttn_provision_with_mac(const char *app_eui, const char *app_key)
 {
     if (!ttn_provisioning_from_mac(app_eui, app_key))
         return false;
-    
+
     return ttn_provisioning_save_keys();
 }
-
 
 void ttn_start_provisioning_task(void)
 {
@@ -188,7 +187,7 @@ bool ttn_join(const char *dev_eui, const char *app_eui, const char *app_key)
 {
     if (!ttn_provisioning_decode_keys(dev_eui, app_eui, app_key))
         return false;
-    
+
     return join_core();
 }
 
@@ -267,19 +266,19 @@ ttn_response_code_t ttn_transmit_message(const uint8_t *payload, size_t length, 
 
         switch (result.event)
         {
-            case TTN_EVENT_MESSAGE_RECEIVED:
-                if (message_callback != NULL)
-                    message_callback(result.message, result.message_size, result.port);
-                break;
+        case TTN_EVENT_MESSAGE_RECEIVED:
+            if (message_callback != NULL)
+                message_callback(result.message, result.message_size, result.port);
+            break;
 
-            case TTN_EVENT_TRANSMISSION_COMPLETED:
-                return TTN_SUCCESSFUL_TRANSMISSION;
+        case TTN_EVENT_TRANSMISSION_COMPLETED:
+            return TTN_SUCCESSFUL_TRANSMISSION;
 
-            case TTN_EVENT_TRANSMISSION_FAILED:
-                return TTN_ERROR_TRANSMISSION_FAILED;
+        case TTN_EVENT_TRANSMISSION_FAILED:
+            return TTN_ERROR_TRANSMISSION_FAILED;
 
-            default:
-                ASSERT(0);
+        default:
+            ASSERT(0);
         }
     }
 }
@@ -289,12 +288,11 @@ void ttn_on_message(ttn_message_cb callback)
     message_callback = callback;
 }
 
-
 bool ttn_is_provisioned(void)
 {
     if (ttn_provisioning_have_keys())
         return true;
-    
+
     ttn_provisioning_restore_keys(true);
 
     return ttn_provisioning_have_keys();
@@ -376,43 +374,41 @@ int ttn_rssi(void)
     return LMIC.rssi;
 }
 
-
 // --- Callbacks ---
 
 #if CONFIG_LOG_DEFAULT_LEVEL >= 3 || LMIC_ENABLE_event_logging
-static const char *event_names[] = { LMIC_EVENT_NAME_TABLE__INIT };
+static const char *event_names[] = {LMIC_EVENT_NAME_TABLE__INIT};
 #endif
 
-
 // Called by LMIC when an LMIC event (join, join failed, reset etc.) occurs
-void event_callback(void* user_data, ev_t event)
+void event_callback(void *user_data, ev_t event)
 {
     // update monitoring information
-    switch(event)
+    switch (event)
     {
-        case EV_TXSTART:
-            current_rx_tx_window = TTN_WINDOW_TX;
-            save_rf_settings(&last_rf_settings[TTN_WINDOW_TX]);
-            clear_rf_settings(&last_rf_settings[TTN_WINDOW_RX1]);
-            clear_rf_settings(&last_rf_settings[TTN_WINDOW_RX2]);
-            break;
+    case EV_TXSTART:
+        current_rx_tx_window = TTN_WINDOW_TX;
+        save_rf_settings(&last_rf_settings[TTN_WINDOW_TX]);
+        clear_rf_settings(&last_rf_settings[TTN_WINDOW_RX1]);
+        clear_rf_settings(&last_rf_settings[TTN_WINDOW_RX2]);
+        break;
 
-        case EV_RXSTART:
-            if (current_rx_tx_window != TTN_WINDOW_RX1)
-            {
-                current_rx_tx_window = TTN_WINDOW_RX1;
-                save_rf_settings(&last_rf_settings[TTN_WINDOW_RX1]);
-            }
-            else
-            {
-                current_rx_tx_window = TTN_WINDOW_RX2;
-                save_rf_settings(&last_rf_settings[TTN_WINDOW_RX2]);
-            }
-            break;
+    case EV_RXSTART:
+        if (current_rx_tx_window != TTN_WINDOW_RX1)
+        {
+            current_rx_tx_window = TTN_WINDOW_RX1;
+            save_rf_settings(&last_rf_settings[TTN_WINDOW_RX1]);
+        }
+        else
+        {
+            current_rx_tx_window = TTN_WINDOW_RX2;
+            save_rf_settings(&last_rf_settings[TTN_WINDOW_RX2]);
+        }
+        break;
 
-        default:
-            current_rx_tx_window = TTN_WINDOW_IDLE;
-            break;
+    default:
+        current_rx_tx_window = TTN_WINDOW_IDLE;
+        break;
     };
 
 #if LMIC_ENABLE_event_logging
@@ -438,9 +434,7 @@ void event_callback(void* user_data, ev_t event)
     if (ttn_event == TTN_EVENT_NONE)
         return;
 
-    ttn_lmic_event_t result = {
-        .event = ttn_event
-    };
+    ttn_lmic_event_t result = {.event = ttn_event};
     waiting_reason = TTN_WAITING_NONE;
     xQueueSend(lmic_event_queue, &result, pdMS_TO_TICKS(100));
 }
@@ -449,11 +443,7 @@ void event_callback(void* user_data, ev_t event)
 void message_received_callback(void *user_data, uint8_t port, const uint8_t *message, size_t message_size)
 {
     ttn_lmic_event_t result = {
-        .event = TTN_EVENT_MESSAGE_RECEIVED,
-        .port = port,
-        .message = message,
-        .message_size = message_size
-    };
+        .event = TTN_EVENT_MESSAGE_RECEIVED, .port = port, .message = message, .message_size = message_size};
     xQueueSend(lmic_event_queue, &result, pdMS_TO_TICKS(100));
 }
 
@@ -461,24 +451,20 @@ void message_received_callback(void *user_data, uint8_t port, const uint8_t *mes
 void message_transmitted_callback(void *user_data, int success)
 {
     waiting_reason = TTN_WAITING_NONE;
-    ttn_lmic_event_t result = {
-        .event = success ? TTN_EVENT_TRANSMISSION_COMPLETED : TTN_EVENT_TRANSMISSION_FAILED
-    };
+    ttn_lmic_event_t result = {.event = success ? TTN_EVENT_TRANSMISSION_COMPLETED : TTN_EVENT_TRANSMISSION_FAILED};
     xQueueSend(lmic_event_queue, &result, pdMS_TO_TICKS(100));
 }
 
-
 // --- Helpers
 
-
-void save_rf_settings(ttn_rf_settings_t* rf_settings)
+void save_rf_settings(ttn_rf_settings_t *rf_settings)
 {
     rf_settings->spreading_factor = (ttn_spreading_factor_t)(getSf(LMIC.rps) + 1);
     rf_settings->bandwidth = (ttn_bandwidth_t)(getBw(LMIC.rps) + 1);
     rf_settings->frequency = LMIC.freq;
 }
 
-void clear_rf_settings(ttn_rf_settings_t* rf_settings)
+void clear_rf_settings(ttn_rf_settings_t *rf_settings)
 {
     memset(rf_settings, 0, sizeof(*rf_settings));
 }

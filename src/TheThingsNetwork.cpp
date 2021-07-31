@@ -1,9 +1,9 @@
 /*******************************************************************************
- * 
+ *
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
- * 
+ *
  * Copyright (c) 2018-2021 Manuel Bleichenbacher
- * 
+ *
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
@@ -11,7 +11,6 @@
  *******************************************************************************/
 
 #include "TheThingsNetwork.h"
-
 
 TTNRFSettings TheThingsNetwork::getRFSettings(TTNRxTxWindow window)
 {

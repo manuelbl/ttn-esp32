@@ -343,7 +343,7 @@ void ttn_set_max_tx_pow(int tx_pow)
     }
 }
 
-ttn_rf_settings_t ttn_getrf_settings(ttn_rx_tx_window_t window)
+ttn_rf_settings_t ttn_get_rf_settings(ttn_rx_tx_window_t window)
 {
     int index = ((int)window) & 0x03;
     return last_rf_settings[index];

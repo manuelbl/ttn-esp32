@@ -616,6 +616,17 @@ class TheThingsNetwork
     }
 
     /**
+     * @brief Waits until the TTN device is idle.
+     * 
+     * If the TTN device is idle, the ESP32 can go into deep sleep mode
+     * or be powered off without disrupting an on-going communication.
+     */
+    void waitForIdle()
+    {
+        ttn_wait_for_idle();
+    }
+
+    /**
      * @brief Returns the minimum duration the TTN device is busy.
      * 
      * This function can be called to check whether the TTN device is

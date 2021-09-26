@@ -584,6 +584,14 @@ extern "C"
     void ttn_prepare_for_deep_sleep(void);
 
     /**
+     * @brief Waits until the TTN device is idle.
+     * 
+     * If the TTN device is idle, the ESP32 can go into deep sleep mode
+     * or be powered off without disrupting an on-going communication.
+     */
+    void ttn_wait_for_idle(void);
+
+    /**
      * @brief Returns the minimum duration the TTN device will be busy.
      * 
      * This function can be called to check whether the TTN device is
@@ -599,7 +607,7 @@ extern "C"
      * 
      * @return busy duration (in FreeRTOS ticks)
      */
-    TickType_t ttn_busy_duration();
+    TickType_t ttn_busy_duration(void);
 
     /**
      * @brief Stops all activies.

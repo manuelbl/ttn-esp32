@@ -305,6 +305,30 @@ bool ttn_is_provisioned(void)
     return ttn_provisioning_have_keys();
 }
 
+void ttn_wait_for_idle(void)
+{
+    while (true)
+    {
+        TickType_t ticks_to_wait = ttn_busy_duration();
+        if (ticks_to_wait == 0)
+            return;
+        vTaskDelay(ticks_to_wait);
+    }
+}
+
+TickType_t ttn_busy_duration(void)
+{
+    TickType_t duration = hal_esp32_get_timer_duration();
+    if (duration != 0)
+        return duration; // busy or timer scheduled
+
+    if (current_rx_tx_window != TTN_WINDOW_IDLE)
+        return pdMS_TO_TICKS(100); // within TX/RX window
+
+    return 0; // idle
+}
+
+
 void ttn_set_rssi_cal(int8_t rssi_cal)
 {
     hal_esp32_set_rssi_cal(rssi_cal);

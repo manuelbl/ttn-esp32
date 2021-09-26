@@ -33,6 +33,8 @@ void hal_esp32_leave_critical_section(void);
 
 void hal_esp32_set_rssi_cal(int8_t rssi_cal);
 
+TickType_t hal_esp32_get_timer_duration(void);
+
 
 #ifdef __cplusplus
 }

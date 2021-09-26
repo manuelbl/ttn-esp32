@@ -35,6 +35,7 @@
 
 
 typedef enum {
+    WAIT_KIND_NONE = 0,
     WAIT_KIND_CHECK_IO,
     WAIT_KIND_WAIT_FOR_ANY_EVENT,
     WAIT_KIND_WAIT_FOR_TIMER
@@ -74,6 +75,7 @@ static SemaphoreHandle_t mutex;
 static esp_timer_handle_t timer;
 static int64_t next_alarm;
 static volatile bool run_background_task;
+static volatile wait_kind_e current_wait_kind;
 
 
 // -----------------------------------------------------------------------------
@@ -331,7 +333,9 @@ bool wait(wait_kind_e wait_kind)
     TickType_t ticks_to_wait = wait_kind == WAIT_KIND_CHECK_IO ? 0 : portMAX_DELAY;
     while (true)
     {
+        current_wait_kind = wait_kind;
         uint32_t bits = ulTaskNotifyTake(pdTRUE, ticks_to_wait);
+        current_wait_kind = WAIT_KIND_NONE;
         if (bits == 0)
             return false;
 
@@ -365,6 +369,22 @@ bool wait(wait_kind_e wait_kind)
         }
     }
 }
+
+TickType_t hal_esp32_get_timer_duration(void)
+{
+    wait_kind_e wait_kind = current_wait_kind;
+    int64_t alarm_time = next_alarm;
+
+    if (wait_kind == WAIT_KIND_NONE || wait_kind == WAIT_KIND_CHECK_IO)
+        return 1; // busy, not waiting
+
+    if (alarm_time != 0)
+        return pdMS_TO_TICKS((alarm_time - esp_timer_get_time() + 999) / 1000);
+
+
+    return 0; // waiting indefinitely
+}
+
 
 // Gets current time in LMIC ticks
 u4_t IRAM_ATTR hal_ticks(void)

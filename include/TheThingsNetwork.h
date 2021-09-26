@@ -437,17 +437,6 @@ class TheThingsNetwork
     }
 
     /**
-     * @brief Resets the LoRaWAN radio.
-     *
-     * To restart communication, @ref join() must be called.
-     * Clears neither the provisioned keys nor the configured pins.
-     */
-    void reset()
-    {
-        ttn_reset();
-    }
-
-    /**
      * @brief Configures the pins used to communicate with the LoRaWAN radio chip.
      *
      * Before calling this member function, the SPI bus needs to be configured using `spi_bus_initialize()`.
@@ -553,10 +542,13 @@ class TheThingsNetwork
     }
 
     /**
-     * @brief Activates the device via OTAA.
+     * @brief Activates the device via OTAA using previously provisioned keys.
      *
-     * The DevEUI, AppEUI/JoinEUI and AppKey must have already been provisioned by a call to provision().
+     * The DevEUI, AppEUI/JoinEUI and AppKey must have already been provisioned by a call
+     * to @ref provision() or @ref provisionWithMAC().
      * Before this function is called, `nvs_flash_init()` must have been called once.
+     *
+     * The RF module is initialized and the TTN background task is started.
      *
      * The function blocks until the activation has completed or failed.
      *
@@ -568,9 +560,12 @@ class TheThingsNetwork
     }
 
     /**
-     * @brief Sets the DevEUI, AppEUI/JoinEUI and AppKey and activate the device via OTAA.
+     * @brief Activates the device via OTAA using the provided keys.
      *
-     * The DevEUI, AppEUI/JoinEUI and AppKey are NOT saved in non-volatile memory.
+     * For the activation, the provided DevEUI, AppEUI/JoinEUI and AppKey are used.
+     * They are NOT saved in non-volatile memory.
+     *
+     * The RF module is initialized and the TTN background task is started.
      *
      * The function blocks until the activation has completed or failed.
      *
@@ -582,6 +577,78 @@ class TheThingsNetwork
     bool join(const char *devEui, const char *appEui, const char *appKey)
     {
         return ttn_join(devEui, appEui, appKey);
+    }
+
+    /**
+     * @brief Resumes TTN communication after deep sleep.
+     * 
+     * The communcation state is restored from data previously saved in RTC memory.
+     * The RF module and the TTN background task are started.
+     * 
+     * This function is called instead of @ref join() or @ref join(const char*, const char*, const char*)
+     * to continue with the established communication and to avoid a further join procedure.
+     *
+     * @return `true` if the device was able to resume, `false` otherwise.
+     */
+    bool resumeAfterDeepSleep()
+    {
+        return ttn_resume_after_deep_sleep();
+    }
+
+    /**
+     * @brief Stops all activies and prepares for deep sleep.
+     * 
+     * This function is called before entering deep sleep. It saves the current
+     * communication state in RTC memory and shuts down the RF module and the
+     * TTN background task.
+     * 
+     * It neither clears the provisioned keys nor the configured pins
+     * but they will be lost if the device goes into deep sleep.
+     * 
+     * Before calling this function, use @ref busyDuration() to check
+     * that the TTN device is idle and ready to go to deep sleep.
+     * 
+     * To restart communication, @ref resumeAfterDeepSleep() must be called.
+     */
+    void prepareForDeepSleep()
+    {
+        ttn_prepare_for_deep_sleep();
+    }
+
+    /**
+     * @brief Returns the minimum duration the TTN device is busy.
+     * 
+     * This function can be called to check whether the TTN device is
+     * still involved in communication or ready to go to deep sleep or
+     * to be powered off.
+     * 
+     * If it returns 0, the TTN communication is idle and the device can go
+     * to deep sleep or can be powered off.
+     * 
+     * If it returns a value different from 0, the value indicates the duration
+     * the device will be certainly busy. After that time, this function must be
+     * called again. It might still return a value different from 0.
+     * 
+     * @return busy duration (in FreeRTOS ticks)
+     */
+    TickType_t busyDuration()
+    {
+        return ttn_busy_duration();
+    }
+
+    /**
+     * @brief Stops all activies.
+     * 
+     * This function shuts down the RF module and the TTN background task. It neither clears the
+     * provisioned keys nor the configured pins. The currentat device state (and activation)
+     * are lost.
+     *
+     * To restart communication, @ref join() or @ref join(const char*, const char*, const char*)
+     * must be called.
+     */
+    void shutdown()
+    {
+        ttn_shutdown();
     }
 
     /**
@@ -695,27 +762,6 @@ class TheThingsNetwork
     void setMaxTxPower(int tx_pow)
     {
         ttn_set_max_tx_pow(tx_pow);
-    }
-
-    /**
-     * @brief Stops all activies and shuts down the RF module and the background tasks.
-     *
-     * To restart communication, @ref startup() and @ref join() must be called.
-     * it neither clears the provisioned keys nor the configured pins.
-     */
-    void shutdown()
-    {
-        ttn_shutdown();
-    }
-
-    /**
-     * @brief Restarts the background tasks and RF module.
-     *
-     * This member function must only be called after a call to shutdowna().
-     */
-    void startup()
-    {
-        ttn_startup();
     }
 
     /**

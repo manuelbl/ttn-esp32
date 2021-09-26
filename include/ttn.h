@@ -433,18 +433,12 @@ extern "C"
     void ttn_init(void);
 
     /**
-     * @brief Resets the LoRaWAN radio.
-     *
-     * To restart communication, @ref ttn_join() or @ref ttn_join_provisioned() must be called.
-     * It neither clears the provisioned keys nor the configured pins.
-     */
-    void ttn_reset(void);
-
-    /**
      * @brief Configures the pins used to communicate with the LoRaWAN radio chip.
      *
      * Before calling this member function, the SPI bus needs to be configured using `spi_bus_initialize()`.
      * Additionally, `gpio_install_isr_service()` must have been called to initialize the GPIO ISR handler service.
+     * 
+     * Call this function after @ref ttn_init() and before all other TTN functions.
      *
      * @param spi_host  The SPI bus/peripherial to use (`SPI_HOST`, `HSPI_HOST` or `VSPI_HOST`).
      * @param nss       The GPIO pin number connected to the radio chip's NSS pin (serving as the SPI chip select)
@@ -528,10 +522,13 @@ extern "C"
     void ttn_wait_for_provisioning(void);
 
     /**
-     * @brief Activates the device via OTAA.
+     * @brief Activates the device via OTAA using previously provisioned keys.
      *
-     * The DevEUI, AppEUI/JoinEUI and AppKey must have already been provisioned by a call to provision().
+     * The DevEUI, AppEUI/JoinEUI and AppKey must have already been provisioned by a call
+     * to @ref ttn_provision() or @ref ttn_provision_with_mac().
      * Before this function is called, `nvs_flash_init()` must have been called once.
+     *
+     * The RF module is initialized and the TTN background task is started.
      *
      * The function blocks until the activation has completed or failed.
      *
@@ -540,9 +537,12 @@ extern "C"
     bool ttn_join_provisioned(void);
 
     /**
-     * @brief Sets the DevEUI, AppEUI/JoinEUI and AppKey and activate the device via OTAA.
+     * @brief Activates the device via OTAA using the provided keys.
+     * 
+     * For the activation, the provided DevEUI, AppEUI/JoinEUI and AppKey are used.
+     * They are NOT saved in non-volatile memory.
      *
-     * The DevEUI, AppEUI/JoinEUI and AppKey are NOT saved in non-volatile memory.
+     * The RF module is initialized and the TTN background task is started.
      *
      * The function blocks until the activation has completed or failed.
      *
@@ -552,6 +552,65 @@ extern "C"
      * @return `true` if the activation was succesful, `false` if the activation failed
      */
     bool ttn_join(const char *dev_eui, const char *app_eui, const char *app_key);
+
+    /**
+     * @brief Resumes TTN communication after deep sleep.
+     * 
+     * The communcation state is restored from data previously saved in RTC memory.
+     * The RF module and the TTN background task are started.
+     * 
+     * This function is called instead of @ref ttn_join() or @ref ttn_join_provisioned()
+     * to continue with the established communication and to avoid a further join procedure.
+     *
+     * @return `true` if the device was able to resume, `false` otherwise.
+     */
+    bool ttn_resume_after_deep_sleep(void);
+
+    /**
+     * @brief Stops all activies and prepares for deep sleep.
+     * 
+     * This function is called before entering deep sleep. It saves the current
+     * communication state in RTC memory and shuts down the RF module and the
+     * TTN background task.
+     * 
+     * It neither clears the provisioned keys nor the configured pins
+     * but they will be lost if the device goes into deep sleep.
+     * 
+     * Before calling this function, use @ref ttn_busy_duration() to check
+     * that the TTN device is idle and ready to go to deep sleep.
+     * 
+     * To restart communication, @ref ttn_resume_after_deep_sleep() must be called.
+     */
+    void ttn_prepare_for_deep_sleep(void);
+
+    /**
+     * @brief Returns the minimum duration the TTN device will be busy.
+     * 
+     * This function can be called to check whether the TTN device is
+     * still involved in communication or ready to go to deep sleep or
+     * to be powered off.
+     * 
+     * If it returns 0, the TTN communication is idle and the device can go
+     * to deep sleep or can be powered off.
+     * 
+     * If it returns a value different from 0, the value indicates the duration
+     * the device will be certainly busy. After that time, this function must be
+     * called again. It might still return a value different from 0.
+     * 
+     * @return busy duration (in FreeRTOS ticks)
+     */
+    TickType_t ttn_busy_duration();
+
+    /**
+     * @brief Stops all activies.
+     * 
+     * This function shuts down the RF module and the TTN background task. It neither clears the
+     * provisioned keys nor the configured pins. The currentat device state (and activation)
+     * are lost.
+     *
+     * To restart communication, @ref ttn_join() and @ref ttn_join_provisioned() must be called.
+     */
+    void ttn_shutdown(void);
 
     /**
      * @brief Transmits a message
@@ -641,21 +700,6 @@ extern "C"
      * @param tx_pow power, in dBm
      */
     void ttn_set_max_tx_pow(int tx_pow);
-
-    /**
-     * @brief Stops all activies and shuts down the RF module and the background tasks.
-     *
-     * To restart communication, @ref ttn_startup() and @ref ttn_join() must be called.
-     * it neither clears the provisioned keys nor the configured pins.
-     */
-    void ttn_shutdown(void);
-
-    /**
-     * @brief Restarts the background tasks and RF module.
-     *
-     * This member function must only be called after a call to shutdowna().
-     */
-    void ttn_startup(void);
 
     /**
      * @brief Gets current RX/TX window

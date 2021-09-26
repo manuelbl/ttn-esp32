@@ -58,6 +58,7 @@ typedef struct
 } ttn_lmic_event_t;
 
 static bool is_started;
+static bool has_joined;
 static QueueHandle_t lmic_event_queue;
 static ttn_message_cb message_callback;
 static ttn_waiting_reason_t waiting_reason = TTN_WAITING_NONE;
@@ -67,6 +68,8 @@ static int subband = 2;
 static ttn_data_rate_t join_data_rate = TTN_DR_JOIN_DEFAULT;
 static int max_tx_power = DEFAULT_MAX_TX_POWER;
 
+static void start(void);
+static void stop(void);
 static bool join_core(void);
 static void config_rf_params(void);
 static void event_callback(void *user_data, ev_t event);
@@ -93,16 +96,6 @@ void ttn_configure_pins(spi_host_device_t spi_host, uint8_t nss, uint8_t rxtx, u
 #if LMIC_ENABLE_event_logging
     ttn_log_init();
 #endif
-
-    LMIC_registerEventCb(event_callback, NULL);
-    LMIC_registerRxMessageCb(message_received_callback, NULL);
-
-    os_init_ex(NULL);
-    ttn_reset();
-
-    lmic_event_queue = xQueueCreate(4, sizeof(ttn_lmic_event_t));
-    ASSERT(lmic_event_queue != NULL);
-    hal_esp32_start_lmic_task();
 }
 
 void ttn_set_subband(int band)
@@ -110,17 +103,32 @@ void ttn_set_subband(int band)
     subband = band;
 }
 
-void ttn_reset(void)
+void start(void)
 {
+    if (is_started)
+        return;
+
+    LMIC_registerEventCb(event_callback, NULL);
+    LMIC_registerRxMessageCb(message_received_callback, NULL);
+
+    os_init_ex(NULL);
     hal_esp32_enter_critical_section();
     LMIC_reset();
     LMIC_setClockError(MAX_CLOCK_ERROR * 4 / 100);
     waiting_reason = TTN_WAITING_NONE;
     hal_esp32_leave_critical_section();
+
+    lmic_event_queue = xQueueCreate(4, sizeof(ttn_lmic_event_t));
+    ASSERT(lmic_event_queue != NULL);
+    hal_esp32_start_lmic_task();
+    is_started = true;
 }
 
-void ttn_shutdown(void)
+void stop(void)
 {
+    if (!is_started)
+        return;
+    
     hal_esp32_enter_critical_section();
     LMIC_shutdown();
     hal_esp32_stop_lmic_task();
@@ -128,12 +136,9 @@ void ttn_shutdown(void)
     hal_esp32_leave_critical_section();
 }
 
-void ttn_startup(void)
+void ttn_shutdown(void)
 {
-    hal_esp32_enter_critical_section();
-    LMIC_reset();
-    hal_esp32_start_lmic_task();
-    hal_esp32_leave_critical_section();
+    stop();
 }
 
 bool ttn_provision(const char *dev_eui, const char *app_eui, const char *app_key)
@@ -226,7 +231,9 @@ bool join_core(void)
         return false;
     }
 
-    is_started = true;
+    start();
+
+    has_joined = true;
     hal_esp32_enter_critical_section();
     xQueueReset(lmic_event_queue);
     waiting_reason = TTN_WAITING_FOR_JOIN;
@@ -239,8 +246,8 @@ bool join_core(void)
 
     ttn_lmic_event_t event;
     xQueueReceive(lmic_event_queue, &event, portMAX_DELAY);
-    is_started = event.event == TTN_EVNT_JOIN_COMPLETED;
-    return is_started;
+    has_joined = event.event == TTN_EVNT_JOIN_COMPLETED;
+    return has_joined;
 }
 
 ttn_response_code_t ttn_transmit_message(const uint8_t *payload, size_t length, ttn_port_t port, bool confirm)
@@ -317,7 +324,7 @@ void ttn_set_adr_enabled(bool enabled)
 
 void ttn_set_data_rate(ttn_data_rate_t data_rate)
 {
-    if (is_started)
+    if (has_joined)
     {
         hal_esp32_enter_critical_section();
         LMIC_setDrTxpow(data_rate, LMIC.adrTxPow);
@@ -331,7 +338,7 @@ void ttn_set_data_rate(ttn_data_rate_t data_rate)
 
 void ttn_set_max_tx_pow(int tx_pow)
 {
-    if (is_started)
+    if (has_joined)
     {
         hal_esp32_enter_critical_section();
         LMIC_setDrTxpow(LMIC.datarate, tx_pow);

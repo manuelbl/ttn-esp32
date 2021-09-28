@@ -18,6 +18,7 @@
 #include "lmic/lmic.h"
 #include "ttn_logging.h"
 #include "ttn_provisioning.h"
+#include "ttn_rtc.h"
 
 #define TAG "ttn"
 
@@ -61,7 +62,7 @@ static bool is_started;
 static bool has_joined;
 static QueueHandle_t lmic_event_queue;
 static ttn_message_cb message_callback;
-static ttn_waiting_reason_t waiting_reason = TTN_WAITING_NONE;
+static ttn_waiting_reason_t waiting_reason;
 static ttn_rf_settings_t last_rf_settings[4];
 static ttn_rx_tx_window_t current_rx_tx_window;
 static int subband = 2;
@@ -212,6 +213,29 @@ bool ttn_join(void)
     return join_core();
 }
 
+bool ttn_resume_after_deep_sleep(void)
+{
+    if (!ttn_provisioning_have_keys())
+    {
+        if (!ttn_provisioning_restore_keys(false))
+            return false;
+    }
+
+    if (!ttn_provisioning_have_keys())
+    {
+        ESP_LOGW(TAG, "DevEUI, AppEUI/JoinEUI and/or AppKey have not been provided");
+        return false;
+    }
+
+    start();
+
+    if (!ttn_rtc_restore())
+        return false;
+
+    has_joined = true;
+    return true;
+}
+
 // Called immediately before sending join request message
 void config_rf_params(void)
 {
@@ -310,6 +334,12 @@ bool ttn_is_provisioned(void)
     return ttn_provisioning_have_keys();
 }
 
+void ttn_prepare_for_deep_sleep(void)
+{
+    ttn_rtc_save();
+}
+
+
 void ttn_wait_for_idle(void)
 {
     while (true)
@@ -353,29 +383,25 @@ void ttn_set_adr_enabled(bool enabled)
 
 void ttn_set_data_rate(ttn_data_rate_t data_rate)
 {
+    join_data_rate = data_rate;
+
     if (has_joined)
     {
         hal_esp32_enter_critical_section();
         LMIC_setDrTxpow(data_rate, LMIC.adrTxPow);
         hal_esp32_leave_critical_section();
     }
-    else
-    {
-        join_data_rate = data_rate;
-    }
 }
 
 void ttn_set_max_tx_pow(int tx_pow)
 {
+    max_tx_power = tx_pow;
+
     if (has_joined)
     {
         hal_esp32_enter_critical_section();
         LMIC_setDrTxpow(LMIC.datarate, tx_pow);
         hal_esp32_leave_critical_section();
-    }
-    else
-    {
-        max_tx_power = tx_pow;
     }
 }
 

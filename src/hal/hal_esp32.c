@@ -22,6 +22,8 @@
 #include "driver/timer.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#include <time.h>
+#include <sys/time.h>
 
 #define LMIC_UNUSED_PIN 0xff
 
@@ -46,7 +48,7 @@ static void lmic_background_task(void* pvParameter);
 static void qio_irq_handler(void* arg);
 static void timer_callback(void *arg);
 static int64_t os_time_to_esp_time(int64_t esp_now, uint32_t os_time);
-
+static int64_t get_current_time();
 static void init_io(void);
 static void init_spi(void);
 static void init_timer(void);
@@ -64,7 +66,6 @@ static gpio_num_t pin_dio0;
 static gpio_num_t pin_dio1;
 static int8_t rssi_cal = 10;
 
-
 static TaskHandle_t lmic_task;
 static uint32_t dio_interrupt_time;
 static uint8_t dio_num;
@@ -73,6 +74,7 @@ static spi_device_handle_t spi_handle;
 static spi_transaction_t spi_transaction;
 static SemaphoreHandle_t mutex;
 static esp_timer_handle_t timer;
+static int64_t time_offset;
 static int64_t next_alarm;
 static volatile bool run_background_task;
 static volatile wait_kind_e current_wait_kind;
@@ -249,10 +251,13 @@ void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
 
 /*
  * LIMIC uses a 32 bit time system (ostime_t) counting ticks. In this
- * implementation each tick is 16µs. It will wrap arounnd every 19 hours.
+ * implementation, each tick is 16µs. It will wrap arounnd every 19 hours.
  * 
  * The ESP32 has a 64 bit timer counting microseconds. It will wrap around
  * every 584,000 years. So we don't need to bother.
+ * 
+ * The time includes an offset initialized from `gettimeofday()`
+ * to ensure the time correctly advances during deep sleep.
  * 
  * Based on this timer, future callbacks can be scheduled. This is used to
  * schedule the next LMIC job.
@@ -276,13 +281,16 @@ int64_t os_time_to_esp_time(int64_t esp_now, uint32_t os_time)
     }
     else
     {
-        // one's complement instead of two's complement:
-        // off by 1 µs and ignored
-        os_diff = ~os_diff;
+        os_diff = -os_diff;
         esp_time = esp_now - (((int64_t)os_diff) << 4);
     }
 
     return esp_time;
+}
+
+int64_t get_current_time()
+{
+    return esp_timer_get_time() + time_offset;
 }
 
 void init_timer(void)
@@ -296,6 +304,10 @@ void init_timer(void)
     esp_err_t err = esp_timer_create(&timer_config, &timer);
     ESP_ERROR_CHECK(err);
 
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    time_offset = (int64_t)now.tv_sec * 1000000;
+
     ESP_LOGI(TAG, "Timer initialized");
 }
 
@@ -308,7 +320,7 @@ void arm_timer(int64_t esp_now)
 {
     if (next_alarm == 0)
         return;
-    int64_t timeout = next_alarm - esp_timer_get_time();
+    int64_t timeout = next_alarm - get_current_time();
     if (timeout < 0)
         timeout = 10;
     esp_timer_start_once(timer, timeout);
@@ -379,7 +391,7 @@ TickType_t hal_esp32_get_timer_duration(void)
         return 1; // busy, not waiting
 
     if (alarm_time != 0)
-        return pdMS_TO_TICKS((alarm_time - esp_timer_get_time() + 999) / 1000);
+        return pdMS_TO_TICKS((alarm_time - get_current_time() + 999) / 1000);
 
 
     return 0; // waiting indefinitely
@@ -391,7 +403,7 @@ u4_t IRAM_ATTR hal_ticks(void)
 {
     // LMIC tick unit: 16µs
     // esp_timer unit: 1µs
-    return (u4_t)(esp_timer_get_time() >> 4);
+    return (u4_t)(get_current_time() >> 4);
 }
 
 // Wait until the specified time.
@@ -399,7 +411,7 @@ u4_t IRAM_ATTR hal_ticks(void)
 // All other events are ignored and will be served later.
 u4_t hal_waitUntil(u4_t time)
 {
-    int64_t esp_now = esp_timer_get_time();
+    int64_t esp_now = get_current_time();
     int64_t esp_time = os_time_to_esp_time(esp_now, time);
     set_next_alarm(esp_time);
     arm_timer(esp_now);
@@ -423,7 +435,7 @@ void hal_esp32_wake_up(void)
 // in the queue. If the job is not due yet, LMIC will go to sleep.
 u1_t hal_checkTimer(uint32_t time)
 {
-    int64_t esp_now = esp_timer_get_time();
+    int64_t esp_now = get_current_time();
     int64_t esp_time = os_time_to_esp_time(esp_now, time);
     int64_t diff = esp_time - esp_now;
     if (diff < 100)
@@ -440,7 +452,7 @@ void hal_sleep(void)
     if (wait(WAIT_KIND_CHECK_IO))
         return;
 
-    arm_timer(esp_timer_get_time());
+    arm_timer(get_current_time());
     wait(WAIT_KIND_WAIT_FOR_ANY_EVENT);
 }
 

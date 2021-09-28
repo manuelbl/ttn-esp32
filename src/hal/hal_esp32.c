@@ -520,7 +520,9 @@ void hal_esp32_stop_lmic_task(void)
     gpio_isr_handler_remove(pin_dio0);
     gpio_isr_handler_remove(pin_dio1);
     disarm_timer();
+    set_next_alarm(0);
     xTaskNotify(lmic_task, NOTIFY_BIT_STOP, eSetBits);
+    lmic_task = xTaskGetCurrentTaskHandle();
 }
 
 

@@ -149,6 +149,11 @@ bool ttn_provision(const char *dev_eui, const char *app_eui, const char *app_key
     return ttn_provisioning_save_keys();
 }
 
+bool ttn_provision_transiently(const char *dev_eui, const char *app_eui, const char *app_key)
+{
+    return ttn_provisioning_decode_keys(dev_eui, app_eui, app_key);
+}
+
 bool ttn_provision_with_mac(const char *app_eui, const char *app_key)
 {
     if (!ttn_provisioning_from_mac(app_eui, app_key))
@@ -188,7 +193,7 @@ void ttn_wait_for_provisioning(void)
 #endif
 }
 
-bool ttn_join(const char *dev_eui, const char *app_eui, const char *app_key)
+bool ttn_join_with_keys(const char *dev_eui, const char *app_eui, const char *app_key)
 {
     if (!ttn_provisioning_decode_keys(dev_eui, app_eui, app_key))
         return false;
@@ -196,7 +201,7 @@ bool ttn_join(const char *dev_eui, const char *app_eui, const char *app_key)
     return join_core();
 }
 
-bool ttn_join_provisioned(void)
+bool ttn_join(void)
 {
     if (!ttn_provisioning_have_keys())
     {

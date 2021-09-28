@@ -49,6 +49,14 @@ const char *appKey = "????????????????????????????????";
 static uint8_t msgData[] = "Hello, world";
 
 
+void messageReceived(const uint8_t* message, size_t length, ttn_port_t port)
+{
+    printf("Message of %d bytes received on port %d:", length, port);
+    for (int i = 0; i < length; i++)
+        printf(" %02x", message[i]);
+    printf("\n");
+}
+
 void app_main(void)
 {
     esp_err_t err;
@@ -79,6 +87,9 @@ void app_main(void)
 
     // The below line can be commented after the first run as the data is saved in NVS
     ttn_provision(devEui, appEui, appKey);
+
+    // Register callback for received messages
+    ttn_on_message(messageReceived);
 
     // ttn_set_adr_enabled(false);
     // ttn_set_data_rate(TTN_DR_US915_SF7);

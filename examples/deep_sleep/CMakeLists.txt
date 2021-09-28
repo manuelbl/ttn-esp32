@@ -5,4 +5,6 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 # e.g. list(APPEND EXTRA_COMPONENT_DIRS "/Users/me/Documents/ttn-esp32")
 list(APPEND EXTRA_COMPONENT_DIRS "../..")
 
-project(shutdown)
+#add_definitions(-DLMIC_ENABLE_event_logging=1)
+
+project(deep_sleep)

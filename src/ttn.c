@@ -337,6 +337,7 @@ bool ttn_is_provisioned(void)
 void ttn_prepare_for_deep_sleep(void)
 {
     ttn_rtc_save();
+    stop();
 }
 
 
@@ -357,8 +358,8 @@ TickType_t ttn_busy_duration(void)
     if (duration != 0)
         return duration; // busy or timer scheduled
 
-    if (current_rx_tx_window != TTN_WINDOW_IDLE)
-        return pdMS_TO_TICKS(100); // within TX/RX window
+    if ((LMIC.opmode & (OP_JOINING | OP_TXDATA | OP_POLL | OP_TXRXPEND)) != 0)
+        return pdMS_TO_TICKS(100); // pending action
 
     return 0; // idle
 }

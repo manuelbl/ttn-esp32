@@ -391,7 +391,12 @@ TickType_t hal_esp32_get_timer_duration(void)
         return 1; // busy, not waiting
 
     if (alarm_time != 0)
-        return pdMS_TO_TICKS((alarm_time - get_current_time() + 999) / 1000);
+    {
+        TickType_t dur = pdMS_TO_TICKS((alarm_time - get_current_time() + 999) / 1000);
+        if (dur > pdMS_TO_TICKS(30000))
+            dur = pdMS_TO_TICKS(200);
+        return dur;
+    }
 
 
     return 0; // waiting indefinitely

@@ -1,22 +1,22 @@
 /*******************************************************************************
- * 
+ *
  * ttn-esp32 - The Things Network device library for ESP-IDF / SX127x
- * 
- * Copyright (c) 2018 Manuel Bleichenbacher
- * 
+ *
+ * Copyright (c) 2021 Manuel Bleichenbacher
+ *
  * Licensed under MIT License
  * https://opensource.org/licenses/MIT
  *
- * Sample program showing how to send and receive messages.
+ * Sample program sending messages and going to deep sleep in-between.
  *******************************************************************************/
 
-#include "freertos/FreeRTOS.h"
-#include "esp_event.h"
 #include "driver/gpio.h"
+#include "esp_event.h"
+#include "esp_sleep.h"
+#include "freertos/FreeRTOS.h"
 #include "nvs_flash.h"
 
 #include "TheThingsNetwork.h"
-
 
 // NOTE:
 // The LoRaWAN frequency and the radio chip must be configured by running 'idf.py menuconfig'.
@@ -32,71 +32,24 @@ const char *devEui = "????????????????";
 // AppKey
 const char *appKey = "????????????????????????????????";
 
-
 // Pins and other resources
-#define TTN_SPI_HOST      HSPI_HOST
-#define TTN_SPI_DMA_CHAN  1
-#define TTN_PIN_SPI_SCLK  5
-#define TTN_PIN_SPI_MOSI  27
-#define TTN_PIN_SPI_MISO  19
-#define TTN_PIN_NSS       18
-#define TTN_PIN_RXTX      TTN_NOT_CONNECTED
-#define TTN_PIN_RST       14
-#define TTN_PIN_DIO0      26
-#define TTN_PIN_DIO1      35
+#define TTN_SPI_HOST HSPI_HOST
+#define TTN_SPI_DMA_CHAN 1
+#define TTN_PIN_SPI_SCLK 5
+#define TTN_PIN_SPI_MOSI 27
+#define TTN_PIN_SPI_MISO 19
+#define TTN_PIN_NSS 18
+#define TTN_PIN_RXTX TTN_NOT_CONNECTED
+#define TTN_PIN_RST 14
+#define TTN_PIN_DIO0 26
+#define TTN_PIN_DIO1 35
 
 static TheThingsNetwork ttn;
 
-const unsigned TX_INTERVAL = 30;
+const unsigned TX_INTERVAL = 60;
 static uint8_t msgData[] = "Hello, world";
 
-bool join()
-{
-    printf("Joining...\n");
-    if (ttn.join())
-    {
-        printf("Joined.\n");
-        return true;
-    }
-    else
-    {
-        printf("Join failed. Goodbye\n");
-        return false;
-    }
-}
-
-
-void sendMessages(void* pvParameter)
-{
-    while (1) {
-
-        // Send 2 messages
-        for (int i = 0; i < 2; i++)
-        {
-            printf("Sending message...\n");
-            TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
-            printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
-
-            vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
-        }
-
-        // shutdown
-        ttn.shutdown();
-
-        // go to sleep
-        printf("Sleeping for 30s...\n");
-        vTaskDelay(pdMS_TO_TICKS(30000));
-
-        // startup
-        ttn.startup();
-
-        // join again
-        if (!join())
-            return;
-    }
-}
-
-void messageReceived(const uint8_t* message, size_t length, ttn_port_t port)
+void messageReceived(const uint8_t *message, size_t length, ttn_port_t port)
 {
     printf("Message of %d bytes received on port %d:", length, port);
     for (int i = 0; i < length; i++)
@@ -110,7 +63,7 @@ extern "C" void app_main(void)
     // Initialize the GPIO ISR handler service
     err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
     ESP_ERROR_CHECK(err);
-    
+
     // Initialize the NVS (non-volatile storage) for saving and restoring the keys
     err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
@@ -132,10 +85,42 @@ extern "C" void app_main(void)
     // The below line can be commented after the first run as the data is saved in NVS
     ttn.provision(devEui, appEui, appKey);
 
+    // Register callback for received messages
     ttn.onMessage(messageReceived);
 
-    if (join())
+    //    ttn.setAdrEnabled(false);
+    //    ttn.setDataRate(kTTNDataRate_US915_SF7);
+    //    ttn.setMaxTxPower(14);
+
+    if (ttn.resumeAfterDeepSleep())
     {
-        xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, nullptr);
+        printf("Resumed from deep sleep.\n");
     }
+    else
+    {
+        printf("Joining...\n");
+        if (ttn.join())
+        {
+            printf("Joined.\n");
+        }
+        else
+        {
+            printf("Join failed. Goodbye\n");
+            return;
+        }
+    }
+
+    printf("Sending message...\n");
+    TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
+    printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
+
+    // Wait until TTN communication is idle and save state
+    ttn.waitForIdle();
+    ttn.prepareForDeepSleep();
+
+    // Schedule wake up
+    esp_sleep_enable_timer_wakeup(TX_INTERVAL * 1000000LL);
+
+    printf("Going to deep sleep...\n");
+    esp_deep_sleep_start();
 }

@@ -3,11 +3,12 @@
 **The Things Network device library for ESP-IDF (ESP32) supporting devices with Semtech SX127x chips**
 
 This ESP32 component provides LoRaWAN communication with
-[The Things Network](https://www.thethingsnetwork.org/). It supports
+[The Things Network](https://www.thethingsnetwork.org/). It supports:
 
 - OTAA (over-the-air activation)
 - uplink and downlink messages
 - saving the EUIs and key in non-volatile memory
+- deep sleep and power off without the need for rejoining
 - [AT commands](https://github.com/manuelbl/ttn-esp32/wiki/AT-Commands) for provisioning EUIs and key
 (so the same code can be flashed to several devices)
 - support for regions Europe, North and South America, Australia, Korea, Asia and India
@@ -18,6 +19,7 @@ The library is based on the LMIC library from IBM (specifically the well-maintai
 
 ## New in version 4.0 (prerelease)
 
+- Support for deep sleep and power off
 - Verified compatibility with ESP-IDF v4.3
 - Upgraded underlying library mcci-catena/arduino-lmic to v4.0.1 (improved channel shuffling)
 - C API

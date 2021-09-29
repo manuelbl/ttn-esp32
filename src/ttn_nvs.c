@@ -32,6 +32,8 @@ void ttn_nvs_save()
 {
     nvs_handle handle = 0;
     esp_err_t res = nvs_open(NVS_FLASH_PARTITION, NVS_READWRITE, &handle);
+    if (res == ESP_ERR_NVS_NOT_INITIALIZED)
+        ESP_LOGW(TAG, "NVS storage is not initialized. Call 'nvs_flash_init()' first.");
     if (res != ESP_OK)
         goto done;
 
@@ -62,20 +64,15 @@ void ttn_nvs_save()
 done:
     nvs_close(handle);
 
-    if (res == ESP_ERR_NVS_NOT_INITIALIZED)
-    {
-        ESP_LOGW(TAG, "NVS storage is not initialized. Call 'nvs_flash_init()' first.");
-    }
-    else
-    {
-        ESP_ERROR_CHECK(res);
-    }
+    ESP_ERROR_CHECK(res);
 }
 
 bool ttn_nvs_restore(int off_duration)
 {
     nvs_handle handle = 0;
     esp_err_t res = nvs_open(NVS_FLASH_PARTITION, NVS_READWRITE, &handle);
+    if (res == ESP_ERR_NVS_NOT_INITIALIZED)
+        ESP_LOGW(TAG, "NVS storage is not initialized. Call 'nvs_flash_init()' first.");
     if (res != ESP_OK)
         goto done;
 
@@ -89,10 +86,14 @@ bool ttn_nvs_restore(int off_duration)
     if (res != ESP_OK)
         goto done;
 
+    memset(LMIC.pendTxData, 0, MAX_LEN_PAYLOAD);
+
     size_t len2 = LMIC_DIST(pendTxData, frame) - MAX_LEN_PAYLOAD;
     res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_2, (u1_t *)&LMIC.pendTxData + MAX_LEN_PAYLOAD, &len2);
     if (res != ESP_OK)
         goto done;
+
+    memset(LMIC.frame, 0, MAX_LEN_FRAME);
 
     size_t len3 = sizeof(struct lmic_t) - LMIC_OFFSET(frame) - MAX_LEN_FRAME;
     res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_3, (u1_t *)&LMIC.frame + MAX_LEN_FRAME, &len3);
@@ -114,10 +115,8 @@ bool ttn_nvs_restore(int off_duration)
 done:
     nvs_close(handle);
 
-    if (res == ESP_ERR_NVS_NOT_INITIALIZED)
-    {
-        ESP_LOGW(TAG, "NVS storage is not initialized. Call 'nvs_flash_init()' first.");
-    }
+    if (res != ESP_OK)
+        memset(&LMIC.radio, 0, sizeof(LMIC) - LMIC_OFFSET(radio));
 
     return res == ESP_OK;
 }

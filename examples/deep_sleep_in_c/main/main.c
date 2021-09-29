@@ -16,6 +16,8 @@
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
+#include <stdio.h>
+#include <string.h>
 
 #include "ttn.h"
 
@@ -46,7 +48,9 @@ const char *appKey = "????????????????????????????????";
 #define TTN_PIN_DIO1      35
 
 #define TX_INTERVAL 60 // in sec
-static uint8_t msgData[] = "Hello, world";
+
+// This counter value is retained (in RTC memory) during deep sleep
+RTC_DATA_ATTR int counter_in_rtc_mem;
 
 
 void messageReceived(const uint8_t* message, size_t length, ttn_port_t port)
@@ -113,7 +117,10 @@ void app_main(void)
     }
 
     printf("Sending message...\n");
-    ttn_response_code_t res = ttn_transmit_message(msgData, sizeof(msgData) - 1, 1, false);
+    counter_in_rtc_mem++;
+    char message[20];
+    sprintf(message, "Hello %d", counter_in_rtc_mem);
+    ttn_response_code_t res = ttn_transmit_message((uint8_t *)message, strlen(message), 1, false);
     printf(res == TTN_SUCCESSFUL_TRANSMISSION ? "Message sent.\n" : "Transmission failed.\n");
 
     // Wait until TTN communication is idle and save state

@@ -15,6 +15,8 @@
 #include "esp_sleep.h"
 #include "freertos/FreeRTOS.h"
 #include "nvs_flash.h"
+#include <stdio.h>
+#include <string.h>
 
 #include "TheThingsNetwork.h"
 
@@ -47,7 +49,9 @@ const char *appKey = "????????????????????????????????";
 static TheThingsNetwork ttn;
 
 const unsigned TX_INTERVAL = 60;
-static uint8_t msgData[] = "Hello, world";
+
+// This counter value is retained (in RTC memory) during deep sleep
+RTC_DATA_ATTR int counter_in_rtc_mem;
 
 void messageReceived(const uint8_t *message, size_t length, ttn_port_t port)
 {
@@ -111,7 +115,10 @@ extern "C" void app_main(void)
     }
 
     printf("Sending message...\n");
-    TTNResponseCode res = ttn.transmitMessage(msgData, sizeof(msgData) - 1);
+    counter_in_rtc_mem++;
+    char message[20];
+    sprintf(message, "Hello %d", counter_in_rtc_mem);
+    TTNResponseCode res = ttn.transmitMessage((uint8_t *)message, strlen(message));
     printf(res == kTTNSuccessfulTransmission ? "Message sent.\n" : "Transmission failed.\n");
 
     // Wait until TTN communication is idle and save state

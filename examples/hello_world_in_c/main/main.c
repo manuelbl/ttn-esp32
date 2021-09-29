@@ -105,7 +105,7 @@ void app_main(void)
     // ttn_set_max_tx_pow(14);
 
     printf("Joining...\n");
-    if (ttn_join_provisioned())
+    if (ttn_join())
     {
         printf("Joined.\n");
         xTaskCreate(sendMessages, "send_messages", 1024 * 4, (void* )0, 3, NULL);

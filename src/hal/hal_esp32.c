@@ -75,6 +75,7 @@ static spi_transaction_t spi_transaction;
 static SemaphoreHandle_t mutex;
 static esp_timer_handle_t timer;
 static int64_t time_offset;
+static int32_t initial_time_offset;
 static int64_t next_alarm;
 static volatile bool run_background_task;
 static volatile wait_kind_e current_wait_kind;
@@ -306,9 +307,23 @@ void init_timer(void)
 
     struct timeval now;
     gettimeofday(&now, NULL);
-    time_offset = (int64_t)now.tv_sec * 1000000;
+    time_offset += (int64_t)now.tv_sec * 1000000;
+    initial_time_offset = 0;
 
     ESP_LOGI(TAG, "Timer initialized");
+}
+
+uint32_t hal_esp32_get_time(void)
+{
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return now.tv_sec + initial_time_offset;
+}
+
+void hal_esp32_set_time(uint32_t time_val)
+{
+    initial_time_offset = time_val;
+    time_offset = (int64_t)time_val * 1000000;
 }
 
 void set_next_alarm(int64_t time)

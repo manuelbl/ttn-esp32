@@ -588,6 +588,29 @@ extern "C"
     bool ttn_resume_after_deep_sleep(void);
 
     /**
+     * @brief Resumes TTN communication after power off.
+     * 
+     * The communcation state is restored from data previously saved in NVS (non-volatile storage).
+     * The RF module and the TTN background task are started.
+     * 
+     * This function is called instead of @ref ttn_join_with_keys() or @ref ttn_join()
+     * to continue with the established communication and to avoid a further join procedure.
+     * 
+     * In order to advance the clock, the estimated duration the device was powered off has to
+     * be specified. As the exact duration is probably not known, an estimation of the shortest
+     * duration between power off and on can be used instead.
+     * 
+     * If the device has access to the real time, set the system time (using `settimeofday()`)
+     * before calling this function (and before @ref join()) and pass 0 for `off_duration`.
+     * 
+     * Before this function is called, `nvs_flash_init()` must have been called once.
+     *
+     * @param off_duration duration the device was powered off (in minutes)
+     * @return `true` if the device was able to resume, `false` otherwise.
+     */
+    bool ttn_resume_after_power_off(int off_duration);
+
+    /**
      * @brief Stops all activies and prepares for deep sleep.
      * 
      * This function is called before entering deep sleep. It saves the current
@@ -603,6 +626,25 @@ extern "C"
      * To restart communication, @ref ttn_resume_after_deep_sleep() must be called.
      */
     void ttn_prepare_for_deep_sleep(void);
+
+    /**
+     * @brief Stops all activies and prepares for power off.
+     * 
+     * This function is called before powering off the device. It saves the current
+     * communication state in NVS (non-volatile storage) and shuts down the RF module
+     * and the TTN background task.
+     * 
+     * It neither clears the provisioned keys nor the configured pins
+     * but they will be lost if the device is powered off.
+     * 
+     * Before calling this function, use @ref ttn_busy_duration() to check
+     * that the TTN device is idle and ready to be powered off.
+     *
+     * To restart communication, @ref ttn_resume_after_power_off(int) must be called.
+     * 
+     * Before this function is called, `nvs_flash_init()` must have been called once.
+     */
+    void ttn_prepare_for_power_off(void);
 
     /**
      * @brief Waits until the TTN device is idle.

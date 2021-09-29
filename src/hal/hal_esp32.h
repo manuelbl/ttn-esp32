@@ -35,6 +35,26 @@ void hal_esp32_set_rssi_cal(int8_t rssi_cal);
 
 TickType_t hal_esp32_get_timer_duration(void);
 
+/**
+ * Gets the time.
+ * 
+ * The time is relative to boot time of the
+ * run when the device joined the TTN network.
+ * 
+ * @return time (in seconds)
+ */
+uint32_t hal_esp32_get_time(void);
+
+/**
+ * Sets the time.
+ * 
+ * The time is relative to boot time of the
+ * run when the device joined the TTN network.
+ * 
+ * @param time_val time (in seconds)
+ */
+void hal_esp32_set_time(uint32_t time_val);
+
 
 #ifdef __cplusplus
 }

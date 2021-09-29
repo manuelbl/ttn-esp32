@@ -18,6 +18,7 @@
 #include "lmic/lmic.h"
 #include "ttn_logging.h"
 #include "ttn_provisioning.h"
+#include "ttn_nvs.h"
 #include "ttn_rtc.h"
 
 #define TAG "ttn"
@@ -236,6 +237,29 @@ bool ttn_resume_after_deep_sleep(void)
     return true;
 }
 
+bool ttn_resume_after_power_off(int off_duration)
+{
+    if (!ttn_provisioning_have_keys())
+    {
+        if (!ttn_provisioning_restore_keys(false))
+            return false;
+    }
+
+    if (!ttn_provisioning_have_keys())
+    {
+        ESP_LOGW(TAG, "DevEUI, AppEUI/JoinEUI and/or AppKey have not been provided");
+        return false;
+    }
+
+    start();
+
+    if (!ttn_nvs_restore(off_duration))
+        return false;
+
+    has_joined = true;
+    return true;
+}
+
 // Called immediately before sending join request message
 void config_rf_params(void)
 {
@@ -340,6 +364,11 @@ void ttn_prepare_for_deep_sleep(void)
     stop();
 }
 
+void ttn_prepare_for_power_off(void)
+{
+    ttn_nvs_save();
+    stop();
+}
 
 void ttn_wait_for_idle(void)
 {

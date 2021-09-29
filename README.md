@@ -19,11 +19,12 @@ The library is based on the LMIC library from IBM (specifically the well-maintai
 
 ## New in version 4.0 (prerelease)
 
-- Support for deep sleep and power off
+- Support for deep sleep and power off (see [Deep Sleep and Power Off](https://github.com/manuelbl/ttn-esp32/wiki/Deep-Sleep-and-Power-Off))
 - Verified compatibility with ESP-IDF v4.3
 - Upgraded underlying library mcci-catena/arduino-lmic to v4.0.1 (improved channel shuffling)
 - C API
 - Support for sub-bands
+- Dropped support for *Makefile* builds
 
 
 ## Get Started

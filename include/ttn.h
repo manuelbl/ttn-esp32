@@ -598,7 +598,7 @@ extern "C"
      * 
      * In order to advance the clock, the estimated duration the device was powered off has to
      * be specified. As the exact duration is probably not known, an estimation of the shortest
-     * duration between power off and on can be used instead.
+     * duration between power-off and next power-on can be used instead.
      * 
      * If the device has access to the real time, set the system time (using `settimeofday()`)
      * before calling this function (and before @ref join()) and pass 0 for `off_duration`.

@@ -601,7 +601,7 @@ extern "C"
      * duration between power-off and next power-on can be used instead.
      * 
      * If the device has access to the real time, set the system time (using `settimeofday()`)
-     * before calling this function (and before @ref join()) and pass 0 for `off_duration`.
+     * before calling this function (and before @ref ttn_join()) and pass 0 for `off_duration`.
      * 
      * Before this function is called, `nvs_flash_init()` must have been called once.
      *

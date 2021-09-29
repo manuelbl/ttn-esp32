@@ -675,7 +675,7 @@ class TheThingsNetwork
      * It neither clears the provisioned keys nor the configured pins
      * but they will be lost if the device is powered off.
      * 
-     * Before calling this function, use @ref ttn_busy_duration() to check
+     * Before calling this function, use @ref busyDuration() to check
      * that the TTN device is idle and ready to be powered off.
      *
      * To restart communication, @ref resumeAfterPowerOff(int) must be called.

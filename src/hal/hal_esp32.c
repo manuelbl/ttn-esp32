@@ -20,7 +20,6 @@
 #include "driver/gpio.h"
 #include "esp_rom_gpio.h"
 #include "driver/spi_master.h"
-#include "driver/timer.h"
 #include "esp_timer.h"
 #include "esp_log.h"
 #include <time.h>

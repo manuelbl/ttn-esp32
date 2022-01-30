@@ -9,6 +9,7 @@ set(COMPONENT_ADD_INCLUDEDIRS
 )
 set(COMPONENT_REQUIRES
     nvs_flash
+    mbedtls
 )
 
 register_component()

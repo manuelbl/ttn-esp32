@@ -18,6 +18,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
+#include "esp_rom_gpio.h"
 #include "driver/spi_master.h"
 #include "driver/timer.h"
 #include "esp_timer.h"
@@ -116,30 +117,30 @@ void init_io(void)
     ASSERT(pin_dio0 != LMIC_UNUSED_PIN);
     ASSERT(pin_dio1 != LMIC_UNUSED_PIN);
 
-    gpio_pad_select_gpio(pin_nss);
+    esp_rom_gpio_pad_select_gpio(pin_nss);
     gpio_set_level(pin_nss, 0);
     gpio_set_direction(pin_nss, GPIO_MODE_OUTPUT);
 
     if (pin_rx_tx != LMIC_UNUSED_PIN)
     {
-        gpio_pad_select_gpio(pin_rx_tx);
+        esp_rom_gpio_pad_select_gpio(pin_rx_tx);
         gpio_set_level(pin_rx_tx, 0);
         gpio_set_direction(pin_rx_tx, GPIO_MODE_OUTPUT);
     }
 
     if (pin_rst != LMIC_UNUSED_PIN)
     {
-        gpio_pad_select_gpio(pin_rst);
+        esp_rom_gpio_pad_select_gpio(pin_rst);
         gpio_set_level(pin_rst, 0);
         gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);
     }
 
     // DIO pins with interrupt handlers
-    gpio_pad_select_gpio(pin_dio0);
+    esp_rom_gpio_pad_select_gpio(pin_dio0);
     gpio_set_direction(pin_dio0, GPIO_MODE_INPUT);
     gpio_set_intr_type(pin_dio0, GPIO_INTR_POSEDGE);
 
-    gpio_pad_select_gpio(pin_dio1);
+    esp_rom_gpio_pad_select_gpio(pin_dio1);
     gpio_set_direction(pin_dio1, GPIO_MODE_INPUT);
     gpio_set_intr_type(pin_dio1, GPIO_INTR_POSEDGE);
 

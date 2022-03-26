@@ -51,7 +51,7 @@ endchoice
 
 config TTN_SPI_FREQ
     int "SPI frequency (in Hz)"
-    default 10000000
+    default 2000000
     help
         SPI frequency to communicate between ESP32 and SX127x radio chip
 

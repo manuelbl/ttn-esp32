@@ -24,8 +24,8 @@
 
 
 // Pins and other resources
-#define TTN_SPI_HOST      HSPI_HOST
-#define TTN_SPI_DMA_CHAN  1
+#define TTN_SPI_HOST      SPI2_HOST
+#define TTN_SPI_DMA_CHAN  SPI_DMA_DISABLED
 #define TTN_PIN_SPI_SCLK  5
 #define TTN_PIN_SPI_MOSI  27
 #define TTN_PIN_SPI_MISO  19

@@ -110,37 +110,42 @@ void IRAM_ATTR qio_irq_handler(void *arg)
 
 void init_io(void)
 {
-    // pin_nss and pin_dio0 and pin_dio1 are required
+    // pin_nss, pin_dio0 and pin_dio1 are required
     ASSERT(pin_nss != LMIC_UNUSED_PIN);
     ASSERT(pin_dio0 != LMIC_UNUSED_PIN);
     ASSERT(pin_dio1 != LMIC_UNUSED_PIN);
 
-    gpio_reset_pin(pin_nss);
-    gpio_set_level(pin_nss, 0);
-    gpio_set_direction(pin_nss, GPIO_MODE_OUTPUT);
+    gpio_config_t output_pin_config = {
+        .pin_bit_mask = BIT64(pin_nss),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = false,
+        .pull_down_en = false,
+        .intr_type = GPIO_INTR_DISABLE
+    };
 
     if (pin_rx_tx != LMIC_UNUSED_PIN)
-    {
-        gpio_reset_pin(pin_rx_tx);
-        gpio_set_level(pin_rx_tx, 0);
-        gpio_set_direction(pin_rx_tx, GPIO_MODE_OUTPUT);
-    }
+        output_pin_config.pin_bit_mask |= BIT64(pin_rx_tx);
 
     if (pin_rst != LMIC_UNUSED_PIN)
-    {
-        gpio_reset_pin(pin_rst);
+        output_pin_config.pin_bit_mask |= BIT64(pin_rst);
+
+    gpio_config(&output_pin_config);
+
+    gpio_set_level(pin_nss, 1);
+    if (pin_rx_tx != LMIC_UNUSED_PIN)
+        gpio_set_level(pin_rx_tx, 0);
+    if (pin_rst != LMIC_UNUSED_PIN)
         gpio_set_level(pin_rst, 0);
-        gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);
-    }
 
     // DIO pins with interrupt handlers
-    gpio_reset_pin(pin_dio0);
-    gpio_set_direction(pin_dio0, GPIO_MODE_INPUT);
-    gpio_set_intr_type(pin_dio0, GPIO_INTR_POSEDGE);
-
-    gpio_reset_pin(pin_dio1);
-    gpio_set_direction(pin_dio1, GPIO_MODE_INPUT);
-    gpio_set_intr_type(pin_dio1, GPIO_INTR_POSEDGE);
+    gpio_config_t input_pin_config = {
+        .pin_bit_mask = BIT64(pin_dio0) | BIT64(pin_dio1),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = false,
+        .pull_down_en = true,
+        .intr_type = GPIO_INTR_POSEDGE,
+    };
+    gpio_config(&input_pin_config);
 
     ESP_LOGI(TAG, "IO initialized");
 }
@@ -172,7 +177,6 @@ void hal_pin_rst(u1_t val)
         gpio_set_direction(pin_rst, GPIO_MODE_OUTPUT);
 #else
         // keep pin floating
-        gpio_set_level(pin_rst, val);
         gpio_set_direction(pin_rst, GPIO_MODE_INPUT);
 #endif
     }
@@ -207,13 +211,12 @@ void init_spi(void)
 {
     // init device
     spi_device_interface_config_t spi_config = {
-        .mode = 1,
+        .mode = 0,
         .clock_speed_hz = CONFIG_TTN_SPI_FREQ,
         .command_bits = 0,
         .address_bits = 8,
-        .spics_io_num = pin_nss,
+        .spics_io_num = -1,
         .queue_size = 1,
-        .cs_ena_posttrans = 2
     };
 
     esp_err_t ret = spi_bus_add_device(spi_host, &spi_config, &spi_handle);
@@ -224,16 +227,22 @@ void init_spi(void)
 
 void hal_spi_write(u1_t cmd, const u1_t *buf, size_t len)
 {
+    gpio_set_level(pin_nss, 0);
+
     memset(&spi_transaction, 0, sizeof(spi_transaction));
     spi_transaction.addr = cmd;
     spi_transaction.length = 8 * len;
     spi_transaction.tx_buffer = buf;
     esp_err_t err = spi_device_transmit(spi_handle, &spi_transaction);
     ESP_ERROR_CHECK(err);
+
+    gpio_set_level(pin_nss, 1);
 }
 
 void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
 {
+    gpio_set_level(pin_nss, 0);
+
     memset(buf, 0, len);
     memset(&spi_transaction, 0, sizeof(spi_transaction));
     spi_transaction.addr = cmd;
@@ -243,6 +252,8 @@ void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
     spi_transaction.rx_buffer = buf;
     esp_err_t err = spi_device_transmit(spi_handle, &spi_transaction);
     ESP_ERROR_CHECK(err);
+
+    gpio_set_level(pin_nss, 1);
 }
 
 

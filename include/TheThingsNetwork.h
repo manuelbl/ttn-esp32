@@ -442,7 +442,7 @@ class TheThingsNetwork
      * Before calling this member function, the SPI bus needs to be configured using `spi_bus_initialize()`.
      * Additionally, `gpio_install_isr_service()` must have been called to initialize the GPIO ISR handler service.
      *
-     * @param spi_host  The SPI bus/peripherial to use (`SPI_HOST`, `HSPI_HOST` or `VSPI_HOST`).
+     * @param spi_host  The SPI bus/peripherial to use (`SPI1_HOST`, `SPI2_HOST`,  `SPI3_HOST`, `FSPI_HOST`, `HSPI_HOST`, or `VSPI_HOST`).
      * @param nss       The GPIO pin number connected to the radio chip's NSS pin (serving as the SPI chip select)
      * @param rxtx      The GPIO pin number connected to the radio chip's RXTX pin (@ref TTN_NOT_CONNECTED if not
      * connected)

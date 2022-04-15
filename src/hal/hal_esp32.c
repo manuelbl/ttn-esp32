@@ -50,6 +50,8 @@ static int64_t os_time_to_esp_time(int64_t esp_now, uint32_t os_time);
 static int64_t get_current_time();
 static void init_io(void);
 static void init_spi(void);
+static void assert_nss(spi_transaction_t* trans);
+static void deassert_nss(spi_transaction_t* trans);
 static void init_timer(void);
 
 static void set_next_alarm(int64_t time);
@@ -217,6 +219,8 @@ void init_spi(void)
         .address_bits = 8,
         .spics_io_num = -1,
         .queue_size = 1,
+        .pre_cb = assert_nss,
+        .post_cb = deassert_nss,
     };
 
     esp_err_t ret = spi_bus_add_device(spi_host, &spi_config, &spi_handle);
@@ -227,22 +231,16 @@ void init_spi(void)
 
 void hal_spi_write(u1_t cmd, const u1_t *buf, size_t len)
 {
-    gpio_set_level(pin_nss, 0);
-
     memset(&spi_transaction, 0, sizeof(spi_transaction));
     spi_transaction.addr = cmd;
     spi_transaction.length = 8 * len;
     spi_transaction.tx_buffer = buf;
     esp_err_t err = spi_device_transmit(spi_handle, &spi_transaction);
     ESP_ERROR_CHECK(err);
-
-    gpio_set_level(pin_nss, 1);
 }
 
 void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
 {
-    gpio_set_level(pin_nss, 0);
-
     memset(buf, 0, len);
     memset(&spi_transaction, 0, sizeof(spi_transaction));
     spi_transaction.addr = cmd;
@@ -252,7 +250,15 @@ void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
     spi_transaction.rx_buffer = buf;
     esp_err_t err = spi_device_transmit(spi_handle, &spi_transaction);
     ESP_ERROR_CHECK(err);
+}
 
+void IRAM_ATTR assert_nss(spi_transaction_t* trans)
+{
+    gpio_set_level(pin_nss, 0);
+}
+
+void IRAM_ATTR deassert_nss(spi_transaction_t* trans)
+{
     gpio_set_level(pin_nss, 1);
 }
 

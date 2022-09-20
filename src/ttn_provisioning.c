@@ -15,6 +15,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_mac.h"
 #include "freertos/FreeRTOS.h"
 #include "hal/hal_esp32.h"
 #include "lmic/lmic.h"

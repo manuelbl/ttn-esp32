@@ -10,6 +10,9 @@ set(COMPONENT_ADD_INCLUDEDIRS
 set(COMPONENT_REQUIRES
     nvs_flash
     mbedtls
+    driver
+    esp_event
+    esp_timer
 )
 
 register_component()

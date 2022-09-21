@@ -15,7 +15,9 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#if ESP_IDF_VERSION_MAJOR >= 5
 #include "esp_mac.h"
+#endif
 #include "freertos/FreeRTOS.h"
 #include "hal/hal_esp32.h"
 #include "lmic/lmic.h"

@@ -17,11 +17,11 @@ This ESP32 component provides LoRaWAN communication with
 The library is based on the LMIC library from IBM (specifically the well-maintained version by MCCI
 – see their [GitHub repository](https://github.com/mcci-catena/arduino-lmic)) and provides a high-level API specifically targeted at The Things Network.
 
-## New in version 4.0 (prerelease)
+## New in version 4.x
 
 - Support for deep sleep and power off (see [Deep Sleep and Power Off](https://github.com/manuelbl/ttn-esp32/wiki/Deep-Sleep-and-Power-Off))
-- Verified compatibility with ESP-IDF v4.3
-- Upgraded underlying library mcci-catena/arduino-lmic to v4.0.1 (improved channel shuffling)
+- Verified compatibility with ESP-IDF v4.3 and 5.0
+- Upgraded underlying library mcci-catena/arduino-lmic to v4.2.0-1
 - C API
 - Support for sub-bands
 - Dropped support for *Makefile* builds

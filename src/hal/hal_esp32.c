@@ -152,6 +152,7 @@ void init_io(void)
     ESP_LOGI(TAG, "IO initialized");
 }
 
+__attribute__((weak)) // duplicate this symbol if your pin is controlled by e.g. I2C
 void hal_pin_rxtx(u1_t val)
 {
     if (pin_rx_tx == LMIC_UNUSED_PIN)
@@ -160,6 +161,7 @@ void hal_pin_rxtx(u1_t val)
     gpio_set_level(pin_rx_tx, val);
 }
 
+__attribute__((weak)) // duplicate this symbol if your pin is controlled by e.g. I2C
 void hal_pin_rst(u1_t val)
 {
     if (pin_rst == LMIC_UNUSED_PIN)
@@ -251,6 +253,7 @@ void hal_spi_read(u1_t cmd, u1_t *buf, size_t len)
     esp_err_t err = spi_device_transmit(spi_handle, &spi_transaction);
     ESP_ERROR_CHECK(err);
 }
+
 
 void IRAM_ATTR assert_nss(spi_transaction_t* trans)
 {

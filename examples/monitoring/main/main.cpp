@@ -14,6 +14,7 @@
 #include "esp_event.h"
 #include "driver/gpio.h"
 #include "nvs_flash.h"
+#include <string.h>
 
 #include "TheThingsNetwork.h"
 
@@ -62,12 +63,12 @@ void printRFSettings(const char* window, const TTNRFSettings& settings)
     }
     else if (settings.spreadingFactor == kTTNFSK)
     {
-        printf("%s: FSK, BW %dkHz, %d.%d MHz\n",
+        printf("%s: FSK, BW %dkHz, %ld.%ld MHz\n",
                 window, bw, settings.frequency / 1000000, (settings.frequency % 1000000 + 50000) / 100000);
     }
     else
     {
-        printf("%s: SF%d, BW %dkHz, %d.%d MHz\n",
+        printf("%s: SF%d, BW %dkHz, %ld.%ld MHz\n",
                 window, sf, bw, settings.frequency / 1000000, (settings.frequency % 1000000 + 50000) / 100000);
     }
 }
@@ -113,12 +114,10 @@ extern "C" void app_main(void)
 
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config;
+    memset(&spi_bus_config, 0, sizeof(spi_bus_config));
     spi_bus_config.miso_io_num = TTN_PIN_SPI_MISO;
     spi_bus_config.mosi_io_num = TTN_PIN_SPI_MOSI;
     spi_bus_config.sclk_io_num = TTN_PIN_SPI_SCLK;
-    spi_bus_config.quadwp_io_num = -1;
-    spi_bus_config.quadhd_io_num = -1;
-    spi_bus_config.max_transfer_sz = 0;
     err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 

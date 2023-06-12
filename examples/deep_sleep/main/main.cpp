@@ -74,12 +74,10 @@ extern "C" void app_main(void)
 
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config;
+    memset(&spi_bus_config, 0, sizeof(spi_bus_config));
     spi_bus_config.miso_io_num = TTN_PIN_SPI_MISO;
     spi_bus_config.mosi_io_num = TTN_PIN_SPI_MOSI;
     spi_bus_config.sclk_io_num = TTN_PIN_SPI_SCLK;
-    spi_bus_config.quadwp_io_num = -1;
-    spi_bus_config.quadhd_io_num = -1;
-    spi_bus_config.max_transfer_sz = 0;
     err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 

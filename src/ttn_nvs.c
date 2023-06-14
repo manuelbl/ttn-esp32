@@ -28,6 +28,8 @@
 #define NVS_FLASH_KEY_CHUNK_3 "chunk3"
 #define NVS_FLASH_KEY_TIME "time"
 
+static struct lmic_t tmp_LMIC;
+
 void ttn_nvs_save()
 {
     nvs_handle handle = 0;
@@ -82,21 +84,21 @@ bool ttn_nvs_restore(int off_duration)
         goto done;
 
     size_t len1 = LMIC_DIST(radio, pendTxData);
-    res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_1, &LMIC.radio, &len1);
+    res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_1, &tmp_LMIC.radio, &len1);
     if (res != ESP_OK)
         goto done;
 
     memset(LMIC.pendTxData, 0, MAX_LEN_PAYLOAD);
 
     size_t len2 = LMIC_DIST(pendTxData, frame) - MAX_LEN_PAYLOAD;
-    res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_2, (u1_t *)&LMIC.pendTxData + MAX_LEN_PAYLOAD, &len2);
+    res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_2, (u1_t *)&tmp_LMIC.pendTxData + MAX_LEN_PAYLOAD, &len2);
     if (res != ESP_OK)
         goto done;
 
     memset(LMIC.frame, 0, MAX_LEN_FRAME);
 
     size_t len3 = sizeof(struct lmic_t) - LMIC_OFFSET(frame) - MAX_LEN_FRAME;
-    res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_3, (u1_t *)&LMIC.frame + MAX_LEN_FRAME, &len3);
+    res = nvs_get_blob(handle, NVS_FLASH_KEY_CHUNK_3, (u1_t *)&tmp_LMIC.frame + MAX_LEN_FRAME, &len3);
     if (res != ESP_OK)
         goto done;
 
@@ -115,8 +117,14 @@ bool ttn_nvs_restore(int off_duration)
 done:
     nvs_close(handle);
 
-    if (res != ESP_OK)
-        memset(&LMIC.radio, 0, sizeof(LMIC) - LMIC_OFFSET(radio));
+    if (res == ESP_OK) {
+        // copy temporary data to actual
+        memcpy(&LMIC.radio, &tmp_LMIC.radio, LMIC_DIST(radio, pendTxData));
+        memcpy((u1_t *)&LMIC.pendTxData + MAX_LEN_PAYLOAD, (u1_t *)&tmp_LMIC.pendTxData + MAX_LEN_PAYLOAD,
+            LMIC_DIST(pendTxData, frame) - MAX_LEN_PAYLOAD);
+        memcpy((u1_t *)&LMIC.frame + MAX_LEN_FRAME, (u1_t *)&tmp_LMIC.frame + MAX_LEN_FRAME,
+            sizeof(struct lmic_t) - LMIC_OFFSET(frame) - MAX_LEN_FRAME);
+    }
 
     return res == ESP_OK;
 }

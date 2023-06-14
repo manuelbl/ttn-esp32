@@ -291,8 +291,8 @@ bool join_core(void)
     xQueueReset(lmic_event_queue);
     waiting_reason = TTN_WAITING_FOR_JOIN;
 
-    LMIC_startJoining();
     config_rf_params();
+    LMIC_startJoining();
 
     hal_esp32_wake_up();
     hal_esp32_leave_critical_section();

@@ -308,7 +308,7 @@ int64_t os_time_to_esp_time(int64_t esp_now, uint32_t os_time)
     return esp_time;
 }
 
-int64_t get_current_time()
+int64_t IRAM_ATTR get_current_time()
 {
     return esp_timer_get_time() + time_offset;
 }
